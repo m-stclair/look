@@ -1,6 +1,7 @@
 import { createWebgl2Context, resizeDrawingBuffer } from "./gl/context.js";
 import { linkProgram } from "./gl/programs.js";
-import { createTexture, uploadImageTexture } from "./gl/textures.js";
+import { allocateRgbaTexture, createTexture, uploadImageTexture } from "./gl/textures.js";
+import { renderViewComposite, VIEW_COMPOSITE_UNIFORM_NAMES } from "./gl/view-composite-renderer.js";
 import { normalizeConfig } from "./config.js";
 import { lookTintFromHueDegrees } from "./color-utils.js";
 import {
@@ -14,7 +15,7 @@ import {
   zoomViewAtPointer
 } from "./viewport.js";
 
-const UNIFORM_NAMES = Object.freeze([
+const LOOK_UNIFORM_NAMES = Object.freeze([
   "u_image",
   "u_resolution",
   "u_viewport_origin",
@@ -37,19 +38,30 @@ const UNIFORM_NAMES = Object.freeze([
   "u_gain"
 ]);
 
-export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
+export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCompositeFragmentSource}) {
   const gl = createWebgl2Context(canvas);
-  const program = linkProgram(gl, vertexSource, fragmentSource, "Failed to link Look shader.");
-  const texture = createTexture(gl);
+  const lookProgram = linkProgram(gl, vertexSource, fragmentSource, "Failed to link Look shader.");
+  const compositeProgram = linkProgram(
+    gl,
+    vertexSource,
+    viewCompositeFragmentSource,
+    "Failed to link view composite shader."
+  );
+  const sourceTexture = createTexture(gl);
+  const processedTexture = createTexture(gl);
+  const processedFramebuffer = gl.createFramebuffer();
   const vao = gl.createVertexArray();
-  const uniforms = collectUniforms(gl, program, UNIFORM_NAMES);
+  const lookUniforms = collectUniforms(gl, lookProgram, LOOK_UNIFORM_NAMES);
+  const compositeUniforms = collectUniforms(gl, compositeProgram, VIEW_COMPOSITE_UNIFORM_NAMES);
+  const processedTarget = {width: 0, height: 0};
+  const compare = {enabled: false, split: 0.5};
   let config = normalizeConfig();
   let imageSource = null;
   let imageSize = {width: canvas.width || 1, height: canvas.height || 1};
   let view = defaultView();
 
-  gl.useProgram(program);
-  gl.uniform1i(uniforms.u_image, 0);
+  gl.useProgram(lookProgram);
+  gl.uniform1i(lookUniforms.u_image, 0);
 
   function loadImage(source) {
     imageSource = source;
@@ -59,7 +71,9 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
     };
     view = defaultView();
     gl.activeTexture(gl.TEXTURE0);
-    uploadImageTexture(gl, texture, source, {filter: gl.LINEAR});
+    uploadImageTexture(gl, sourceTexture, source, {filter: gl.LINEAR});
+    processedTarget.width = 0;
+    processedTarget.height = 0;
     resizeToDisplay({render: false});
     render();
   }
@@ -67,6 +81,20 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
   function setConfig(nextConfig) {
     config = normalizeConfig(nextConfig);
     render();
+  }
+
+  function setCompareEnabled(enabled) {
+    compare.enabled = !!enabled;
+    render();
+  }
+
+  function setCompareSplit(value) {
+    compare.split = clamp01(Number.isFinite(Number(value)) ? Number(value) : 0.5);
+    render();
+  }
+
+  function getCompare() {
+    return {...compare};
   }
 
   function render() {
@@ -77,39 +105,80 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
     view.centerX = center.centerX;
     view.centerY = center.centerY;
 
+    renderLookPass();
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.012, 0.020, 0.028, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindVertexArray(vao);
 
-    gl.viewport(viewRect.x, viewRect.y, viewRect.w, viewRect.h);
-    gl.useProgram(program);
+    renderViewComposite(gl, compositeProgram, compositeUniforms, {
+      processedTexture,
+      sourceTexture,
+      viewport: viewRect,
+      resolution: [viewRect.w, viewRect.h],
+      viewportOrigin: [viewRect.x, viewRect.y],
+      viewCenter: [view.centerX, view.centerY],
+      viewSpan: [spanX, spanY],
+      compareSplit: compare.enabled ? compare.split : -1,
+      compareEnabled: compare.enabled
+    });
+
+    gl.bindVertexArray(null);
+  }
+
+  function renderLookPass() {
+    ensureProcessedTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, processedFramebuffer);
+    gl.viewport(0, 0, imageSize.width, imageSize.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(lookProgram);
     gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
 
     const tint = lookTintFromHueDegrees(config.tintHue);
-    gl.uniform2f(uniforms.u_resolution, viewRect.w, viewRect.h);
-    gl.uniform2f(uniforms.u_viewport_origin, viewRect.x, viewRect.y);
-    gl.uniform2f(uniforms.u_view_center, view.centerX, view.centerY);
-    gl.uniform2f(uniforms.u_view_span, spanX, spanY);
-    gl.uniform1f(uniforms.u_gamma, config.gamma);
-    gl.uniform1f(uniforms.u_exposure, config.exposure);
-    gl.uniform1f(uniforms.u_chroma_gamma, config.chromaGamma);
-    gl.uniform1f(uniforms.u_chroma_exposure, config.chromaExposure);
-    gl.uniform1f(uniforms.u_chroma_fade_low, config.chromaFadeLow);
-    gl.uniform1f(uniforms.u_chroma_fade_high, config.chromaFadeHigh);
-    gl.uniform1f(uniforms.u_chroma_fade_strength, config.chromaFadeStrength);
-    gl.uniform1f(uniforms.u_shoulder, config.toneShoulder);
-    gl.uniform1f(uniforms.u_center, config.toneCenter);
-    gl.uniform1f(uniforms.u_curve_strength, config.curveStrength);
-    gl.uniform3f(uniforms.u_tint, tint[0], tint[1], tint[2]);
-    gl.uniform1f(uniforms.u_tint_strength, config.tintStrength);
-    gl.uniform1f(uniforms.u_lift, config.lift);
-    gl.uniform1f(uniforms.u_midtone, config.midtone);
-    gl.uniform1f(uniforms.u_gain, config.gain);
+    gl.uniform2f(lookUniforms.u_resolution, imageSize.width, imageSize.height);
+    gl.uniform2f(lookUniforms.u_viewport_origin, 0, 0);
+    gl.uniform2f(lookUniforms.u_view_center, 0.5, 0.5);
+    gl.uniform2f(lookUniforms.u_view_span, 1, 1);
+    gl.uniform1f(lookUniforms.u_gamma, config.gamma);
+    gl.uniform1f(lookUniforms.u_exposure, config.exposure);
+    gl.uniform1f(lookUniforms.u_chroma_gamma, config.chromaGamma);
+    gl.uniform1f(lookUniforms.u_chroma_exposure, config.chromaExposure);
+    gl.uniform1f(lookUniforms.u_chroma_fade_low, config.chromaFadeLow);
+    gl.uniform1f(lookUniforms.u_chroma_fade_high, config.chromaFadeHigh);
+    gl.uniform1f(lookUniforms.u_chroma_fade_strength, config.chromaFadeStrength);
+    gl.uniform1f(lookUniforms.u_shoulder, config.toneShoulder);
+    gl.uniform1f(lookUniforms.u_center, config.toneCenter);
+    gl.uniform1f(lookUniforms.u_curve_strength, config.curveStrength);
+    gl.uniform3f(lookUniforms.u_tint, tint[0], tint[1], tint[2]);
+    gl.uniform1f(lookUniforms.u_tint_strength, config.tintStrength);
+    gl.uniform1f(lookUniforms.u_lift, config.lift);
+    gl.uniform1f(lookUniforms.u_midtone, config.midtone);
+    gl.uniform1f(lookUniforms.u_gain, config.gain);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.bindVertexArray(null);
+  }
+
+  function ensureProcessedTarget() {
+    const width = Math.max(1, Math.round(imageSize.width || 1));
+    const height = Math.max(1, Math.round(imageSize.height || 1));
+    if (processedTarget.width === width && processedTarget.height === height) return;
+
+    gl.activeTexture(gl.TEXTURE0);
+    allocateRgbaTexture(gl, processedTexture, width, height, {filter: gl.LINEAR});
+    gl.bindFramebuffer(gl.FRAMEBUFFER, processedFramebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, processedTexture, 0);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      throw new Error(`Processed render target is incomplete: ${status}`);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    processedTarget.width = width;
+    processedTarget.height = height;
   }
 
   function exportPng(filename = "look.png") {
@@ -225,14 +294,20 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
   }
 
   function dispose() {
-    gl.deleteTexture(texture);
+    gl.deleteTexture(sourceTexture);
+    gl.deleteTexture(processedTexture);
+    gl.deleteFramebuffer(processedFramebuffer);
     gl.deleteVertexArray(vao);
-    gl.deleteProgram(program);
+    gl.deleteProgram(lookProgram);
+    gl.deleteProgram(compositeProgram);
   }
 
   return {
     loadImage,
     setConfig,
+    setCompareEnabled,
+    setCompareSplit,
+    getCompare,
     render,
     exportPng,
     resizeToDisplay,
@@ -247,6 +322,10 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
 
 function defaultView() {
   return {zoom: 1, centerX: 0.5, centerY: 0.5};
+}
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
 }
 
 function collectUniforms(gl, program, names) {

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const shaderPath = new URL("../src/shaders/look.frag", import.meta.url);
+const compositeShaderPath = new URL("../src/shaders/view-composite.frag", import.meta.url);
 
 const requiredUniforms = [
   "u_resolution",
@@ -51,4 +52,14 @@ test("look shader includes gamma and exposure shaping helpers", async () => {
   assert.match(source, /float\s+exposureAdjust\s*\(/);
   assert.match(source, /gammaAdjust\(exposureAdjust\(lch\.x, u_exposure\), u_gamma\)/);
   assert.match(source, /gammaAdjust\(exposureAdjust\(lch\.y, u_chroma_exposure\), u_chroma_gamma\)/);
+});
+
+
+test("view composite shader handles before/after compare in a final pass", async () => {
+  const source = await readFile(compositeShaderPath, "utf8");
+  assert.match(source, /uniform\s+sampler2D\s+u_image/);
+  assert.match(source, /uniform\s+sampler2D\s+u_source/);
+  assert.match(source, /uniform\s+float\s+u_compareSplit/);
+  assert.match(source, /uniform\s+int\s+u_compareEnabled/);
+  assert.match(source, /screenUv\.x\s*<\s*u_compareSplit/);
 });

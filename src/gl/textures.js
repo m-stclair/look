@@ -15,3 +15,18 @@ export function uploadImageTexture(gl, texture, imageSource, {filter = gl.NEARES
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageSource);
 }
+
+export function allocateRgbaTexture(gl, texture, width, height, {filter = gl.LINEAR} = {}) {
+  configureTexture(gl, texture, {filter});
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    Math.max(1, Math.round(width)),
+    Math.max(1, Math.round(height)),
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null
+  );
+}

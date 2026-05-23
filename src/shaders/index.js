@@ -1,9 +1,10 @@
 export async function loadShaderSources() {
-  const [vertexSource, fragmentSource] = await Promise.all([
+  const [vertexSource, fragmentSource, viewCompositeFragmentSource] = await Promise.all([
     fetch(new URL("./fullscreen.vert", import.meta.url)).then(assertOkText),
-    fetch(new URL("./look.frag", import.meta.url)).then(assertOkText)
+    fetch(new URL("./look.frag", import.meta.url)).then(assertOkText),
+    fetch(new URL("./view-composite.frag", import.meta.url)).then(assertOkText)
   ]);
-  return {vertexSource, fragmentSource};
+  return {vertexSource, fragmentSource, viewCompositeFragmentSource};
 }
 
 async function assertOkText(response) {

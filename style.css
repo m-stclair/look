@@ -165,12 +165,41 @@ button:active,
 .panel-title:active { transform: translateY(1px); }
 
 
-.view-tools {
+.view-tools,
+.compare-tools {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
   flex-wrap: nowrap;
+}
+
+.compare-toggle,
+.compare-control {
+  gap: 5px;
+}
+
+.compare-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.compare-control input[type="range"] {
+  width: 76px;
+  height: 14px;
+}
+
+.compare-control output {
+  min-width: 2.35rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.compare-control.is-disabled {
+  opacity: .44;
 }
 
 .view-pill {
@@ -244,6 +273,8 @@ canvas {
 }
 
 canvas.is-panning { cursor: grabbing; }
+canvas.is-comparing.is-near-split,
+canvas.is-splitting { cursor: col-resize; }
 
 .stage-status-footer {
   position: absolute;

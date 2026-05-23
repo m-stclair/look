@@ -17,6 +17,10 @@
               <span class="view-pill"><strong id="viewStatus">100%</strong></span>
               <button id="zoomInButton" type="button" class="mini-control" aria-label="Zoom in">+</button>
             </div>
+            <div class="compare-tools" aria-label="Before and after comparison controls">
+              <label class="compare-toggle mini-control" for="compareToggle" title="Before/after split preview"><input id="compareToggle" type="checkbox"> <span>Compare</span></label>
+              <label class="compare-control mini-control" for="compareSplit"><span>Split</span> <output id="compareSplitValue">50%</output><input id="compareSplit" type="range" min="0" max="100" step="1" value="50" disabled></label>
+            </div>
             <div class="actions app-actions" aria-label="Application actions">
               <label class="file-button">
                 <input id="imageInput" type="file" accept="image/*">
