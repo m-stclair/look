@@ -280,6 +280,12 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
 
   return {
     render: renderConfig,
+    toggleToneMapZoom: () => toneControls?.toggleZoom?.(),
+    toggleChromaMapZoom: () => chromaControls?.toggleZoom?.(),
+    dockZoomedMaps() {
+      toneControls?.setZoomed?.(false);
+      chromaControls?.setZoomed?.(false);
+    },
     setHistogram(nextHistogram) {
       const histograms = normalizeSourceHistograms(nextHistogram);
       sourceHistogram = histograms.luma;

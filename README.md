@@ -27,6 +27,17 @@ The `Edited` badge means the current controls no longer match the selected saved
 
 The `.cube` export samples the same OKLab/OKLCH look transform into a display-referred sRGB 3D LUT. Rows are written in Cube order: red index fastest, blue index slowest.
 
+## Hotkeys
+
+- `Shift + R` resets the current look
+- `C` toggles compare mode
+- `O` opens an image
+- `Shift + 1` toggles Tone Map zoom / dock
+- `Shift + 2` toggles Chroma Map zoom / dock
+- `0` resets image zoom to 100%
+
+Hotkeys are ignored while typing in text fields, selects, textareas, or editable regions.
+
 ## Test
 
 ```sh

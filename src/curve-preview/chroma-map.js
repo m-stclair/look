@@ -122,7 +122,13 @@ export function createChromaMapControls(canvas, bindings) {
   expandButton.textContent = "Expand";
   expandButton.setAttribute("aria-expanded", "false");
 
-  actions.append(resetButton, detailsButton, expandButton);
+  const zoomButton = document.createElement("button");
+  zoomButton.type = "button";
+  zoomButton.className = "tone-map-action chroma-map-zoom";
+  zoomButton.textContent = "Zoom";
+  zoomButton.setAttribute("aria-pressed", "false");
+
+  actions.append(resetButton, detailsButton, expandButton, zoomButton);
   header?.append(actions);
 
   const readouts = document.createElement("div");
@@ -155,8 +161,16 @@ export function createChromaMapControls(canvas, bindings) {
   for (const control of detailControls) details.append(control.wrapper);
   card.append(readouts, details);
 
-  const state = {expanded: false, details: false};
+  const state = {expanded: false, details: false, zoomed: false};
   const workbench = document.getElementById("workbench");
+
+  const handleExternalZoomRequest = event => {
+    if (!state.zoomed || event.detail?.card === card) return;
+    state.zoomed = false;
+    syncExpansion();
+    bindings.requestRender?.();
+  };
+  document.addEventListener("curve-preview-zoom-request", handleExternalZoomRequest);
 
   resetButton.addEventListener("click", () => {
     const nextConfig = resetChromaMapConfig(normalizeConfig(bindings.getConfig()));
@@ -170,6 +184,10 @@ export function createChromaMapControls(canvas, bindings) {
     bindings.requestRender?.();
   });
 
+  zoomButton.addEventListener("click", () => {
+    toggleZoom();
+  });
+
   detailsButton.addEventListener("click", () => {
     state.details = !state.details;
     syncExpansion();
@@ -180,13 +198,36 @@ export function createChromaMapControls(canvas, bindings) {
     control.input.addEventListener("input", () => bindings.setConfigValue(control.key, control.input.valueAsNumber));
   }
 
+  function setZoomed(zoomed) {
+    const nextZoomed = Boolean(zoomed);
+    if (state.zoomed === nextZoomed) return state.zoomed;
+    state.zoomed = nextZoomed;
+    if (state.zoomed) {
+      document.dispatchEvent(new CustomEvent("curve-preview-zoom-request", {detail: {card}}));
+    }
+    syncExpansion();
+    bindings.requestRender?.();
+    return state.zoomed;
+  }
+
+  function toggleZoom() {
+    return setZoomed(!state.zoomed);
+  }
+
   function syncExpansion() {
     card.classList.toggle("is-expanded", state.expanded);
     card.classList.toggle("is-details-open", state.details);
+    card.classList.toggle("is-zoomed", state.zoomed);
     workbench?.classList.toggle("is-chroma-map-expanded", state.expanded);
+    workbench?.classList.toggle("is-chroma-map-zoomed", state.zoomed);
+    expandButton.hidden = state.zoomed;
+    expandButton.disabled = state.zoomed;
     expandButton.textContent = state.expanded ? "Shrink" : "Expand";
     expandButton.setAttribute("aria-expanded", state.expanded ? "true" : "false");
     expandButton.setAttribute("aria-label", `${state.expanded ? "Shrink" : "Expand"} Chroma Map`);
+    zoomButton.textContent = state.zoomed ? "Dock" : "Zoom";
+    zoomButton.setAttribute("aria-pressed", state.zoomed ? "true" : "false");
+    zoomButton.setAttribute("aria-label", `${state.zoomed ? "Dock" : "Zoom"} Chroma Map`);
     detailsButton.setAttribute("aria-expanded", state.details ? "true" : "false");
     detailsButton.setAttribute("aria-label", `${state.details ? "Hide" : "Show"} Chroma Map details`);
   }
@@ -196,9 +237,14 @@ export function createChromaMapControls(canvas, bindings) {
 
   return {
     sync,
-    isExpanded: () => state.expanded || state.details,
+    isExpanded: () => state.expanded || state.details || state.zoomed,
+    isZoomed: () => state.zoomed,
+    setZoomed,
+    toggleZoom,
     destroy() {
+      document.removeEventListener("curve-preview-zoom-request", handleExternalZoomRequest);
       workbench?.classList.remove("is-chroma-map-expanded");
+      workbench?.classList.remove("is-chroma-map-zoomed");
       actions.remove();
       readouts.remove();
       details.remove();

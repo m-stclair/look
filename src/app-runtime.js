@@ -123,7 +123,7 @@ export async function startApp() {
     }
   });
 
-  resetButton.addEventListener("click", () => {
+  const resetCurrentLook = () => {
     const look = lookController?.resetActiveLook?.();
     if (!look) {
       Object.assign(config, cloneDefaultConfig());
@@ -131,6 +131,18 @@ export async function startApp() {
       curvePreviews?.render(config);
     }
     setStatus(status, look ? `Reset controls to ${look.name}.` : "Reset all controls to look defaults.", "neutral");
+  };
+
+  resetButton.addEventListener("click", resetCurrentLook);
+
+  bindHotkeys({
+    imageInput,
+    renderer,
+    syncViewUi,
+    compareControls,
+    curvePreviews,
+    resetCurrentLook,
+    setStatus: (message, tone) => setStatus(status, message, tone)
   });
 
   exportButton.addEventListener("click", async () => {
@@ -173,6 +185,66 @@ function bindToolbarMenus(menus) {
   });
 }
 
+function bindHotkeys({imageInput, renderer, syncViewUi, compareControls, curvePreviews, resetCurrentLook, setStatus}) {
+  document.addEventListener("keydown", event => {
+    if (event.defaultPrevented || event.repeat || shouldIgnoreHotkey(event)) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+    if (event.shiftKey && event.code === "KeyR") {
+      event.preventDefault();
+      resetCurrentLook?.();
+      return;
+    }
+
+    if (!event.shiftKey && event.code === "KeyC") {
+      event.preventDefault();
+      const enabled = compareControls?.toggleCompare?.();
+      if (typeof enabled === "boolean") {
+        setStatus?.(`Compare mode ${enabled ? "on" : "off"}.`, "neutral");
+      }
+      return;
+    }
+
+    if (!event.shiftKey && event.code === "KeyO") {
+      event.preventDefault();
+      imageInput?.click?.();
+      return;
+    }
+
+    if (event.shiftKey && event.code === "Digit1") {
+      event.preventDefault();
+      const zoomed = curvePreviews?.toggleToneMapZoom?.();
+      if (typeof zoomed === "boolean") {
+        setStatus?.(`Tone Map ${zoomed ? "zoomed" : "docked"}.`, "neutral");
+      }
+      return;
+    }
+
+    if (event.shiftKey && event.code === "Digit2") {
+      event.preventDefault();
+      const zoomed = curvePreviews?.toggleChromaMapZoom?.();
+      if (typeof zoomed === "boolean") {
+        setStatus?.(`Chroma Map ${zoomed ? "zoomed" : "docked"}.`, "neutral");
+      }
+      return;
+    }
+
+    if (!event.shiftKey && (event.code === "Digit0" || event.code === "Numpad0")) {
+      event.preventDefault();
+      renderer.resetView();
+      syncViewUi?.();
+      setStatus?.("Image zoom reset to 100%.", "neutral");
+    }
+  });
+}
+
+function shouldIgnoreHotkey(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return false;
+  if (target.closest?.("input, textarea, select, [contenteditable='true'], [contenteditable='']")) return true;
+  return target.isContentEditable === true;
+}
+
 function bindCompareControls({canvas, renderer, compareToggle, compareSplit, compareSplitValue}) {
   function sync() {
     const compare = renderer.getCompare();
@@ -190,6 +262,11 @@ function bindCompareControls({canvas, renderer, compareToggle, compareSplit, com
   function setCompareEnabled(enabled) {
     renderer.setCompareEnabled(enabled);
     sync();
+    return renderer.getCompare().enabled;
+  }
+
+  function toggleCompare() {
+    return setCompareEnabled(!renderer.getCompare().enabled);
   }
 
   function setCompareSplit(value) {
@@ -222,6 +299,8 @@ function bindCompareControls({canvas, renderer, compareToggle, compareSplit, com
 
   return {
     sync,
+    setCompareEnabled,
+    toggleCompare,
     setCompareSplitFromClientX,
     isNearCompareSplit,
     updateNearClass

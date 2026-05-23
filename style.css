@@ -1171,6 +1171,85 @@ input[type="number"]:hover { border-color: var(--line-strong); }
   display: grid;
 }
 
+.tone-map-card.is-zoomed,
+.chroma-map-card.is-zoomed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  width: 100vw;
+  max-width: none;
+  max-height: min(72vh, 100vh);
+  overflow: auto;
+  transform: none;
+  border-color: var(--accent);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: 0 -18px 60px rgba(0,0,0,.48), 0 0 0 1px rgba(255,255,255,.04) inset;
+  backdrop-filter: blur(14px);
+}
+
+.tone-map-card.is-zoomed .tone-map-expand,
+.chroma-map-card.is-zoomed .chroma-map-expand {
+  display: none;
+}
+
+.tone-map-card.is-zoomed {
+  background: linear-gradient(180deg, rgba(24,30,38,.96), rgba(9,12,17,.99));
+}
+
+.chroma-map-card.is-zoomed {
+  background: linear-gradient(180deg, rgba(23,28,36,.96), rgba(9,12,17,.99));
+}
+
+.tone-map-card.is-zoomed canvas,
+.tone-map-card.is-expanded.is-zoomed canvas {
+  height: min(34vh, 300px);
+}
+
+.chroma-map-card.is-zoomed canvas,
+.chroma-map-card.is-expanded.is-zoomed canvas {
+  height: min(30vh, 260px);
+}
+
+.tone-map-card.is-zoomed .tone-map-readouts,
+.chroma-map-card.is-zoomed .chroma-map-readouts {
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+}
+
+.tone-map-card.is-zoomed .tone-map-details,
+.chroma-map-card.is-zoomed .tone-map-details {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 6px 10px;
+}
+
+.tone-map-card.is-zoomed .tone-map-details .tone-dock-range,
+.chroma-map-card.is-zoomed .tone-map-details .tone-dock-range {
+  grid-template-columns: 82px minmax(0, 1fr) 2.5rem;
+}
+
+@media (max-width: 720px) {
+  .tone-map-card.is-zoomed,
+  .chroma-map-card.is-zoomed {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    transform: none;
+  }
+
+  .tone-map-card.is-zoomed canvas,
+  .tone-map-card.is-expanded.is-zoomed canvas,
+  .chroma-map-card.is-zoomed canvas,
+  .chroma-map-card.is-expanded.is-zoomed canvas {
+    height: min(32vh, 230px);
+  }
+}
+
 .look-tools {
   display: flex;
   align-items: center;
