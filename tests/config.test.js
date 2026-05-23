@@ -15,7 +15,7 @@ const expectedRanges = new Map([
   ["chromaExposure", {min: -5, max: 5, step: 0.05}],
   ["curveStrength", {min: 0, max: 1, step: 0.01}],
   ["toneShoulder", {min: 1, max: 6, step: 0.02}],
-  ["toneCenter", {min: -3, max: 1, step: 0.05}],
+  ["toneCenter", {min: -8, max: 0, step: 0.05}],
   ["lift", {min: -0.2, max: 0.2, step: 0.01}],
   ["midtone", {min: -0.2, max: 0.2, step: 0.01}],
   ["gain", {min: -0.2, max: 0.2, step: 0.01}],
@@ -32,9 +32,15 @@ test("cloneDefaultConfig returns a mutable copy", () => {
   assert.equal(DEFAULT_CONFIG.exposure, 0.0);
 });
 
-test("control groups now lead with Adjustments before Tone, Chroma, and Tint", () => {
-  assert.deepEqual(CONTROL_GROUPS.map(group => group.label), ["Adjustments", "Tone", "Chroma Fade", "Tint"]);
-  assert.deepEqual(CONTROL_GROUPS.map(group => group.id), ["adjustments", "tone", "chroma", "tint"]);
+test("control groups separate tone curve from post-curve tonal balance", () => {
+  assert.deepEqual(CONTROL_GROUPS.map(group => group.label), [
+    "Adjustments",
+    "Tone Curve",
+    "Tonal Balance",
+    "Chroma Fade",
+    "Tint"
+  ]);
+  assert.deepEqual(CONTROL_GROUPS.map(group => group.id), ["adjustments", "tone", "tonal-balance", "chroma", "tint"]);
 });
 
 test("every UI control maps once to an existing config key", () => {
@@ -64,6 +70,18 @@ test("UI control ranges match the extraction plan", () => {
     }
   }
 });
+
+test("tone pivot is limited to the visible luma domain", () => {
+  const pivot = CONTROL_GROUPS.find(group => group.id === "tone").controls.find(control => control.key === "toneCenter");
+  assert.equal(pivot.max, 0);
+  assert.ok(pivot.min < -7);
+});
+
+test("logistic controls use human-facing labels", () => {
+  const toneControls = CONTROL_GROUPS.find(group => group.id === "tone").controls;
+  assert.deepEqual(toneControls.map(control => control.label), ["Tone Amount", "Shoulder", "Pivot"]);
+});
+
 
 test("normalizeConfig fills missing values from defaults", () => {
   assert.equal(normalizeConfig({exposure: 2}).toneCenter, DEFAULT_CONFIG.toneCenter);

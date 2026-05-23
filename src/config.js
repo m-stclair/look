@@ -30,12 +30,19 @@ export const CONTROL_GROUPS = Object.freeze([
   },
   {
     id: "tone",
-    label: "Tone",
-    description: "Curve shape, and tonal lift/midtone/gain masks.",
+    label: "Tone Curve",
+    description: "Procedural S-curve character: amount, shoulder, and pivot.",
     controls: [
-      {key: "curveStrength", label: "Curve Strength", min: 0, max: 1, step: 0.01},
-      {key: "toneShoulder", label: "Tone Shoulder", min: 1, max: 6, step: 0.02},
-      {key: "toneCenter", label: "Tone Center", min: -3, max: 1, step: 0.05},
+      {key: "curveStrength", label: "Tone Amount", min: 0, max: 1, step: 0.01},
+      {key: "toneShoulder", label: "Shoulder", min: 1, max: 6, step: 0.02},
+      {key: "toneCenter", label: "Pivot", min: -8, max: 0, step: 0.05}
+    ]
+  },
+  {
+    id: "tonal-balance",
+    label: "Tonal Balance",
+    description: "Post-curve lift, midtone, and gain trim.",
+    controls: [
       {key: "lift", label: "Lift", min: -0.2, max: 0.2, step: 0.01},
       {key: "midtone", label: "Midtone", min: -0.2, max: 0.2, step: 0.01},
       {key: "gain", label: "Gain", min: -0.2, max: 0.2, step: 0.01}

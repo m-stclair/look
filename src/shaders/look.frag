@@ -117,11 +117,10 @@ vec3 applyLook(vec3 srgb) {
 
     vec2 ab = chroma * vec2(cos(hue), sin(hue));
 
-    float tone_base = applyLiftMidtoneGain(luma, u_lift, u_midtone, u_gain);
-
-    float logL = safeLog2(tone_base);
+    float logL = safeLog2(luma);
     float curve = 1.0 / (1.0 + exp(-u_shoulder * (logL - u_center)));
-    float tone = mix(tone_base, curve, u_curve_strength);
+    float tone_base = mix(luma, curve, u_curve_strength);
+    float tone = applyLiftMidtoneGain(tone_base, u_lift, u_midtone, u_gain);
 
     float chroma_fade = smoothstep(u_chroma_fade_low, u_chroma_fade_high, luma);
     float chroma_base = mix(chroma, chroma * chroma_fade, u_chroma_fade_strength);

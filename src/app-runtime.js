@@ -2,6 +2,7 @@ import { compareSplitFromClientX, clientNearCompareSplit } from "./compare-split
 import { cloneDefaultConfig } from "./config.js";
 import { createCurvePreviews } from "./curve-preview.js";
 import { createDemoImage, loadImageFile } from "./image.js";
+import { createLumaHistogramFromImage } from "./histogram.js";
 import { createLookRenderer } from "./renderer.js";
 import { loadShaderSources } from "./shaders/index.js";
 import { buildControls, setError, setStatus } from "./ui.js";
@@ -13,6 +14,7 @@ export async function startApp() {
   const exportButton = mustFind("exportButton");
   const controlsRoot = mustFind("controls");
   const curvePreviewRoot = document.getElementById("curvePreviewRoot");
+  const floatingLumaRoot = document.getElementById("floatingLumaRoot");
   const status = mustFind("status");
   const error = mustFind("error");
   const zoomOutButton = document.getElementById("zoomOutButton");
@@ -35,11 +37,22 @@ export async function startApp() {
   const shaderSources = await loadShaderSources();
   const renderer = createLookRenderer(canvas, shaderSources);
   const config = cloneDefaultConfig();
-  const curvePreviews = curvePreviewRoot ? createCurvePreviews(curvePreviewRoot, config) : null;
-  const controls = buildControls(controlsRoot, config, nextConfig => {
+  let curvePreviews = null;
+  const applyConfig = (nextConfig, {syncControls = false} = {}) => {
+    if (syncControls) controls.sync(nextConfig);
     renderer.setConfig(nextConfig);
     curvePreviews?.render(nextConfig);
+  };
+  const controls = buildControls(controlsRoot, config, nextConfig => {
+    applyConfig(nextConfig);
   });
+  curvePreviews = curvePreviewRoot ? createCurvePreviews(curvePreviewRoot, config, {
+    lumaRoot: floatingLumaRoot,
+    onConfigChange: nextConfig => {
+      Object.assign(config, nextConfig);
+      applyConfig(config, {syncControls: true});
+    }
+  }) : null;
   const compareControls = bindCompareControls({
     canvas,
     renderer,
@@ -71,6 +84,7 @@ export async function startApp() {
 
   const demo = createDemoImage();
   renderer.loadImage(demo);
+  syncSourceHistogram(demo, curvePreviews);
   renderer.setConfig(config);
   syncViewUi();
   compareControls.sync();
@@ -82,6 +96,7 @@ export async function startApp() {
     try {
       const image = await loadImageFile(file);
       renderer.loadImage(image);
+      syncSourceHistogram(image, curvePreviews);
       syncViewUi();
       setError(error, null);
       setStatus(status, imageSummary(file.name, image), "good");
@@ -265,4 +280,15 @@ function mustFind(id) {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing #${id}`);
   return element;
+}
+
+
+function syncSourceHistogram(source, curvePreviews) {
+  if (!curvePreviews?.setHistogram) return;
+  try {
+    curvePreviews.setHistogram(createLumaHistogramFromImage(source));
+  } catch (histogramError) {
+    console.warn("Unable to build luma histogram.", histogramError);
+    curvePreviews.setHistogram(null);
+  }
 }
