@@ -37,6 +37,8 @@ export async function startApp() {
   const workbench = document.getElementById("workbench");
   const toolPaneToggle = document.getElementById("toolPaneToggle");
 
+  bindToolbarMenus(document.querySelectorAll(".toolbar-menu"));
+
   if (workbench && toolPaneToggle) {
     toolPaneToggle.addEventListener("click", () => {
       const expanded = workbench.classList.toggle("is-tools-collapsed") === false;
@@ -144,6 +146,31 @@ export async function startApp() {
   });
 
   return {renderer, config, compareControls, curvePreviews, lookController};
+}
+
+function bindToolbarMenus(menus) {
+  const toolbarMenus = Array.from(menus || []);
+  if (!toolbarMenus.length) return;
+
+  for (const menu of toolbarMenus) {
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      for (const other of toolbarMenus) {
+        if (other !== menu) other.open = false;
+      }
+    });
+
+    menu.addEventListener("click", event => {
+      if (event.target instanceof HTMLButtonElement) {
+        menu.open = false;
+      }
+    });
+  }
+
+  document.addEventListener("pointerdown", event => {
+    if (toolbarMenus.some(menu => menu.open && menu.contains(event.target))) return;
+    for (const menu of toolbarMenus) menu.open = false;
+  });
 }
 
 function bindCompareControls({canvas, renderer, compareToggle, compareSplit, compareSplitValue}) {

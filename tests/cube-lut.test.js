@@ -58,6 +58,34 @@ test("applyLookToSrgb clamps display output for LUT compatibility", () => {
   }
 });
 
+test("tint axis center is independent from the tone pivot", () => {
+  const input = [0.25, 0.25, 0.25];
+  const base = {
+    tintStrength: 0.6,
+    tintLowHue: 248,
+    tintHighHue: 68,
+    tintAxisCenter: -1,
+    curveStrength: 0
+  };
+
+  const lowPivot = applyLookToSrgb(input, {...base, tonePivotNudge: -0.4});
+  const highPivot = applyLookToSrgb(input, {...base, tonePivotNudge: 0.4});
+
+  lowPivot.forEach((channel, index) => assertClose(channel, highPivot[index], 1e-12));
+});
+
+test("tint axis center controls the bipolar tint crossover", () => {
+  const input = [0.25, 0.25, 0.25];
+  const shadowsCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: -3});
+  const midtonesCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: -1});
+
+  assert.ok(
+    shadowsCentered.some((channel, index) => Math.abs(channel - midtonesCentered[index]) > 1e-4),
+    "changing tintAxisCenter should change the tint vector"
+  );
+});
+
+
 test("normalizeLutSize accepts only Cube-compatible sizes", () => {
   assert.equal(normalizeLutSize("33"), 33);
   assert.throws(() => normalizeLutSize(1), /2 to 256/);
@@ -67,4 +95,19 @@ test("normalizeLutSize accepts only Cube-compatible sizes", () => {
 
 test("cubeTitle strips characters that break quoted titles", () => {
   assert.equal(cubeTitle('Warm "Film"\nLook'), "Warm  Film  Look");
+});
+
+
+test("low and high tint hues are independently controlled across the crossover", () => {
+  const lowInput = [0.08, 0.08, 0.08];
+  const highInput = [0.8, 0.8, 0.8];
+  const base = {tintStrength: 0.25, tintAxisCenter: -1, tintLowHue: 240, tintHighHue: 60};
+
+  const lowA = applyLookToSrgb(lowInput, base);
+  const lowB = applyLookToSrgb(lowInput, {...base, tintLowHue: 120});
+  const highA = applyLookToSrgb(highInput, base);
+  const highB = applyLookToSrgb(highInput, {...base, tintLowHue: 120});
+
+  assert.ok(lowA.some((channel, index) => Math.abs(channel - lowB[index]) > 1e-4));
+  highA.forEach((channel, index) => assertClose(channel, highB[index], 1e-12));
 });

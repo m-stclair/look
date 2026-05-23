@@ -12,15 +12,17 @@ const requiredUniforms = [
   "u_chroma_gamma",
   "u_chroma_exposure",
   "u_chroma_fade_strength",
-  "u_center",
+  "u_tone_center",
   "u_shoulder",
   "u_lift",
   "u_midtone",
   "u_gain",
   "u_chroma_fade_low",
   "u_chroma_fade_high",
-  "u_tint",
+  "u_tint_low",
+  "u_tint_high",
   "u_tint_strength",
+  "u_tint_center",
   "u_curve_strength"
 ];
 

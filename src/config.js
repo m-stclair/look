@@ -9,8 +9,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   chromaFadeStrength: 0,
   chromaFadeLow: -3,
   chromaFadeHigh: 2,
-  tintHue: 68,
+  tintLowHue: 248,
+  tintHighHue: 68,
   tintStrength: 0,
+  tintAxisCenter: -1,
   lift: 0,
   midtone: 0,
   gain: 0
@@ -82,10 +84,12 @@ export const CONTROL_GROUPS = Object.freeze([
   {
     id: "tint",
     label: "Tint",
-    description: "Bipolar hue push around the tone curve center.",
+    description: "Two-ended luma tint with an independent crossover point.",
     controls: [
+      {key: "tintLowHue", label: "Low Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
+      {key: "tintHighHue", label: "High Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
       {key: "tintStrength", label: "Tint Strength", min: 0, max: 1, step: 0.01},
-      {key: "tintHue", label: "Tint Hue", min: 0, max: 360, step: 0.01, suffix: "°"}
+      {key: "tintAxisCenter", label: "Crossover", min: -6, max: 0, step: 0.01}
     ]
   }
 ]);
@@ -129,7 +133,7 @@ export function resetChromaMapConfig(config) {
   return config;
 }
 
-export const TINT_CONTROL_KEYS = Object.freeze(["tintStrength", "tintHue"]);
+export const TINT_CONTROL_KEYS = Object.freeze(["tintLowHue", "tintHighHue", "tintStrength", "tintAxisCenter"]);
 
 export function resetTintConfig(config) {
   for (const key of TINT_CONTROL_KEYS) {

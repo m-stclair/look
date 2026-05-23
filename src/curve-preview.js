@@ -1,9 +1,34 @@
-import { normalizeConfig } from "./config.js";
+import { CHROMA_MAP_CONTROL_KEYS, TINT_CONTROL_KEYS, TONE_MAP_CONTROL_KEYS, normalizeConfig } from "./config.js";
 import { createPreviewCard } from "./curve-preview/canvas.js";
 import { createChromaMapControls, bindChromaMapHandles, computeChromaGraphMetrics, drawChromaPreview } from "./curve-preview/chroma-map.js";
 import { createTintControls, bindTintHandles, drawTintPreview } from "./curve-preview/tint.js";
 import { createToneMapControls, bindToneShapeHandles, bindTonalBalanceHandles, drawLumaPreview } from "./curve-preview/tone-map.js";
 import { normalizeSourceHistograms, sanitizeControlValue } from "./curve-preview/shared.js";
+
+const PREVIEW_SCOPES = Object.freeze(["luma", "chroma", "tint"]);
+const CHROMA_PREVIEW_CONTROL_KEYS = Object.freeze([
+  ...CHROMA_MAP_CONTROL_KEYS,
+  "exposure",
+  "gamma"
+]);
+const LUMA_PREVIEW_KEY_SET = new Set(TONE_MAP_CONTROL_KEYS);
+const CHROMA_PREVIEW_KEY_SET = new Set(CHROMA_PREVIEW_CONTROL_KEYS);
+const TINT_PREVIEW_KEY_SET = new Set(TINT_CONTROL_KEYS);
+
+export function previewScopesForConfigKeys(keys = []) {
+  const scopes = new Set();
+  for (const key of keys) {
+    if (LUMA_PREVIEW_KEY_SET.has(key)) scopes.add("luma");
+    if (CHROMA_PREVIEW_KEY_SET.has(key)) scopes.add("chroma");
+    if (TINT_PREVIEW_KEY_SET.has(key)) scopes.add("tint");
+  }
+  return Array.from(scopes);
+}
+
+export function changedConfigKeys(previousConfig = {}, nextConfig = {}) {
+  const keys = new Set([...Object.keys(previousConfig || {}), ...Object.keys(nextConfig || {})]);
+  return Array.from(keys).filter(key => previousConfig?.[key] !== nextConfig?.[key]);
+}
 
 export function createCurvePreviews(root, initialConfig, options = {}) {
   root.textContent = "";
@@ -21,11 +46,11 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
 
   const tintCanvas = createPreviewCard(root, {
     title: "Tint",
-    note: "Hue \u00b7 Strength",
+    note: "Low / High · Strength",
     className: "tint-card"
   });
   tintCanvas.classList.add("tint-curve-canvas");
-  tintCanvas.setAttribute("aria-label", "Tint: drag handle to set hue (X) and strength (Y)");
+  tintCanvas.setAttribute("aria-label", "Tint: drag low or high handle to set hue (X) and shared strength (Y); use the small lock beside H to toggle linked hues; use details to set crossover and rotation");
 
   let config = normalizeConfig(initialConfig);
   let sourceHistogram = null;
@@ -45,25 +70,38 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   let toneControls = null;
   let chromaControls = null;
   let tintControls = null;
+  const dirtyPreviews = {luma: true, chroma: true, tint: true};
 
   function setConfigValue(key, value) {
     setConfigValues({[key]: sanitizeControlValue(key, value)});
   }
 
   function setConfigValues(patch) {
+    const previousConfig = config;
     const nextConfig = normalizeConfig({...config});
     for (const [key, value] of Object.entries(patch || {})) {
       nextConfig[key] = sanitizeControlValue(key, value);
     }
+    const changedKeys = changedConfigKeys(previousConfig, nextConfig);
+    if (!changedKeys.length) return;
+
     config = nextConfig;
     toneControls?.sync(nextConfig);
     chromaControls?.sync(nextConfig);
     tintControls?.sync(nextConfig);
-    scheduleRender(nextConfig);
+    scheduleRender(nextConfig, previewScopesForConfigKeys(changedKeys));
     options.onConfigChange?.(nextConfig);
   }
 
-  const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => scheduleRender());
+  const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(entries => {
+    const scopes = new Set();
+    for (const entry of entries || []) {
+      if (entry.target === lumaCanvas) scopes.add("luma");
+      if (entry.target === chromaCanvas) scopes.add("chroma");
+      if (entry.target === tintCanvas) scopes.add("tint");
+    }
+    scheduleRender(config, scopes.size ? Array.from(scopes) : PREVIEW_SCOPES);
+  });
   resizeObserver?.observe(lumaCanvas);
   resizeObserver?.observe(chromaCanvas);
   resizeObserver?.observe(tintCanvas);
@@ -72,21 +110,21 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     getConfig: () => config,
     setConfigValue,
     setConfigValues,
-    requestRender: () => scheduleRender(config)
+    requestRender: () => scheduleRender(config, "luma")
   });
 
   chromaControls = createChromaMapControls(chromaCanvas, {
     getConfig: () => config,
     setConfigValue,
     setConfigValues,
-    requestRender: () => scheduleRender(config)
+    requestRender: () => scheduleRender(config, "chroma")
   });
 
   tintControls = createTintControls(tintCanvas, {
     getConfig: () => config,
     setConfigValue,
     setConfigValues,
-    requestRender: () => scheduleRender(config)
+    requestRender: () => scheduleRender(config, "tint")
   });
 
   const unbindShapeHandles = bindToneShapeHandles(lumaCanvas, {
@@ -95,12 +133,12 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     getHoverKey: () => hoverShapeHandle,
     setActiveHandle: handle => {
       activeShapeHandle = handle;
-      scheduleRender(config);
+      scheduleRender(config, "luma");
     },
     setHoverKey: key => {
       if (hoverShapeHandle === key) return;
       hoverShapeHandle = key;
-      scheduleRender(config);
+      scheduleRender(config, "luma");
     },
     setConfigValue
   });
@@ -111,12 +149,12 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     getHoverKey: () => hoverBalanceHandle,
     setActiveHandle: handle => {
       activeBalanceHandle = handle;
-      scheduleRender(config);
+      scheduleRender(config, "luma");
     },
     setHoverKey: key => {
       if (hoverBalanceHandle === key) return;
       hoverBalanceHandle = key;
-      scheduleRender(config);
+      scheduleRender(config, "luma");
     },
     setConfigValue
   });
@@ -133,12 +171,12 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     getHoverKey: () => hoverChromaHandle,
     setActiveHandle: handle => {
       activeChromaHandle = handle;
-      scheduleRender(config);
+      scheduleRender(config, "chroma");
     },
     setHoverKey: key => {
       if (hoverChromaHandle === key) return;
       hoverChromaHandle = key;
-      scheduleRender(config);
+      scheduleRender(config, "chroma");
     },
     setConfigValue
   });
@@ -147,18 +185,41 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     getConfig: () => config,
     setActiveHandle: handle => {
       activeTintHandle = handle;
-      scheduleRender(config);
+      scheduleRender(config, "tint");
     },
     setHoverKey: key => {
       if (hoverTintHandle === key) return;
       hoverTintHandle = key;
-      scheduleRender(config);
+      scheduleRender(config, "tint");
     },
-    setConfigValues
+    setConfigValues,
+    toggleTintLink: () => tintControls?.toggleLinked?.(),
+    setTintHandleValue: (key, hue, strength) => tintControls?.setTintHandleValue?.(key, hue, strength)
   });
 
-  function scheduleRender(nextConfig = config) {
+  function normalizeScopes(scopes) {
+    if (!scopes) return [];
+    return Array.isArray(scopes) ? scopes : [scopes];
+  }
+
+  function markDirty(scopes) {
+    for (const scope of normalizeScopes(scopes)) {
+      if (scope === "all") {
+        for (const preview of PREVIEW_SCOPES) dirtyPreviews[preview] = true;
+      } else if (scope in dirtyPreviews) {
+        dirtyPreviews[scope] = true;
+      }
+    }
+  }
+
+  function hasDirtyPreview() {
+    return PREVIEW_SCOPES.some(scope => dirtyPreviews[scope]);
+  }
+
+  function scheduleRender(nextConfig = config, scopes = null) {
     config = normalizeConfig(nextConfig);
+    markDirty(scopes);
+    if (!hasDirtyPreview()) return;
     if (rafId) return;
     rafId = requestAnimationFrame(() => {
       rafId = 0;
@@ -166,35 +227,59 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     });
   }
 
+  function renderConfig(nextConfig = config) {
+    const normalized = normalizeConfig(nextConfig);
+    const changedKeys = changedConfigKeys(config, normalized);
+    config = normalized;
+    markDirty(previewScopesForConfigKeys(changedKeys));
+    scheduleRender(config);
+  }
+
   function renderNow(nextConfig = config) {
     config = normalizeConfig(nextConfig);
+    const shouldDraw = {...dirtyPreviews};
+    for (const scope of PREVIEW_SCOPES) dirtyPreviews[scope] = false;
+
     toneControls?.sync(config);
     chromaControls?.sync(config);
     tintControls?.sync(config);
-    drawLumaPreview(lumaCanvas, config, sourceHistogram, {
-      activeKey: activeBalanceHandle?.key || null,
-      hoverKey: hoverBalanceHandle,
-      showTonePivot: true,
-      activeShapeKey: activeShapeHandle?.key || null,
-      hoverShapeKey: hoverShapeHandle,
-      pivotActive: toneControls?.isDraggingPivot() || activeShapeHandle?.key === "curveStrength" || hoverShapeHandle === "curveStrength",
-      pivotExposed: toneControls?.isExpanded()
-    });
-    drawChromaPreview(chromaCanvas, config, {
-      activeChromaKey: activeChromaHandle?.key || null,
-      hoverChromaKey: hoverChromaHandle,
-      sourceChromaHistogram,
-      sourceChromaByLuma,
-      sourceMaxChroma,
-      sourceChromaDomainMax
-    });
-    drawTintPreview(tintCanvas, config, {activeTintHandle, hoverTintHandle});
+
+    if (shouldDraw.luma) {
+      drawLumaPreview(lumaCanvas, config, sourceHistogram, {
+        activeKey: activeBalanceHandle?.key || null,
+        hoverKey: hoverBalanceHandle,
+        showTonePivot: true,
+        activeShapeKey: activeShapeHandle?.key || null,
+        hoverShapeKey: hoverShapeHandle,
+        pivotActive: toneControls?.isDraggingPivot() || activeShapeHandle?.key === "curveStrength" || hoverShapeHandle === "curveStrength",
+        pivotExposed: toneControls?.isExpanded()
+      });
+    }
+
+    if (shouldDraw.chroma) {
+      drawChromaPreview(chromaCanvas, config, {
+        activeChromaKey: activeChromaHandle?.key || null,
+        hoverChromaKey: hoverChromaHandle,
+        sourceChromaHistogram,
+        sourceChromaByLuma,
+        sourceMaxChroma,
+        sourceChromaDomainMax
+      });
+    }
+
+    if (shouldDraw.tint) {
+      drawTintPreview(tintCanvas, config, {
+        activeTintHandle,
+        hoverTintHandle,
+        tintLinked: tintControls?.isLinked?.() !== false
+      });
+    }
   }
 
   renderNow(config);
 
   return {
-    render: scheduleRender,
+    render: renderConfig,
     setHistogram(nextHistogram) {
       const histograms = normalizeSourceHistograms(nextHistogram);
       sourceHistogram = histograms.luma;
@@ -202,7 +287,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
       sourceChromaByLuma = histograms.chromaByLuma;
       sourceMaxChroma = histograms.maxChroma;
       sourceChromaDomainMax = histograms.chromaDomainMax;
-      scheduleRender(config);
+      scheduleRender(config, ["luma", "chroma"]);
     },
     destroy() {
       if (rafId) cancelAnimationFrame(rafId);

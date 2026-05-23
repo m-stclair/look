@@ -17,31 +17,44 @@
               <input id="lookNameInput" class="look-name" type="text" value="Untitled Look" aria-label="Look name">
               <span id="lookDirty" class="look-dirty">Built-in</span>
               <button id="saveLookButton" type="button" class="mini-control">Save</button>
-              <button id="duplicateLookButton" type="button" class="mini-control">Copy</button>
-              <button id="deleteLookButton" type="button" class="mini-control">Delete</button>
-              <button id="exportLookButton" type="button" class="mini-control">JSON</button>
-              <button id="exportCubeButton" type="button" class="mini-control">LUT</button>
-              <label class="file-button mini-control">
-                <input id="importLookInput" type="file" accept="application/json,.json,.look.json">
-                Import
-              </label>
+              <details class="toolbar-menu look-menu">
+                <summary class="mini-control" aria-label="More look actions">Look</summary>
+                <div class="toolbar-menu-popover" role="group" aria-label="More look actions">
+                  <button id="duplicateLookButton" type="button" class="mini-control">Copy</button>
+                  <button id="deleteLookButton" type="button" class="mini-control">Delete</button>
+                  <button id="exportLookButton" type="button" class="mini-control">JSON</button>
+                  <button id="exportCubeButton" type="button" class="mini-control">LUT</button>
+                  <label class="file-button mini-control">
+                    <input id="importLookInput" type="file" accept="application/json,.json,.look.json">
+                    Import
+                  </label>
+                </div>
+              </details>
             </div>
             <div class="view-tools" aria-label="View controls">
               <button id="zoomOutButton" type="button" class="mini-control" aria-label="Zoom out">−</button>
               <span class="view-pill"><strong id="viewStatus">100%</strong></span>
               <button id="zoomInButton" type="button" class="mini-control" aria-label="Zoom in">+</button>
             </div>
-            <div class="compare-tools" aria-label="Before and after comparison controls">
-              <label class="compare-toggle mini-control" for="compareToggle" title="Before/after split preview"><input id="compareToggle" type="checkbox"> <span>Compare</span></label>
-              <label class="compare-control mini-control" for="compareSplit"><span>Split</span> <output id="compareSplitValue">50%</output><input id="compareSplit" type="range" min="0" max="100" step="1" value="50" disabled></label>
-            </div>
+            <details class="toolbar-menu compare-menu">
+              <summary class="mini-control" aria-label="Comparison controls">Compare</summary>
+              <div class="toolbar-menu-popover" role="group" aria-label="Before and after comparison controls">
+                <label class="compare-toggle mini-control" for="compareToggle" title="Before/after split preview"><input id="compareToggle" type="checkbox"> <span>On</span></label>
+                <label class="compare-control mini-control" for="compareSplit"><span>Split</span> <output id="compareSplitValue">50%</output><input id="compareSplit" type="range" min="0" max="100" step="1" value="50" disabled></label>
+              </div>
+            </details>
             <div class="actions app-actions" aria-label="Application actions">
-              <label class="file-button">
+              <label class="file-button mini-control">
                 <input id="imageInput" type="file" accept="image/*">
                 Open
               </label>
-              <button id="resetButton" type="button">Reset</button>
-              <button id="exportButton" type="button">PNG</button>
+              <details class="toolbar-menu export-menu">
+                <summary class="mini-control" aria-label="Export and reset actions">More</summary>
+                <div class="toolbar-menu-popover" role="group" aria-label="Export and reset actions">
+                  <button id="resetButton" type="button" class="mini-control">Reset</button>
+                  <button id="exportButton" type="button" class="mini-control">PNG</button>
+                </div>
+              </details>
             </div>
           </div>
         </div>

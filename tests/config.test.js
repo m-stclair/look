@@ -29,8 +29,10 @@ const expectedRanges = new Map([
   ["chromaFadeLow", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeHigh", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeStrength", {min: 0, max: 1, step: 0.01}],
+  ["tintLowHue", {min: 0, max: 360, step: 0.01}],
+  ["tintHighHue", {min: 0, max: 360, step: 0.01}],
   ["tintStrength", {min: 0, max: 1, step: 0.01}],
-  ["tintHue", {min: 0, max: 360, step: 0.01}]
+  ["tintAxisCenter", {min: -6, max: 0, step: 0.01}]
 ]);
 
 test("cloneDefaultConfig returns a mutable copy", () => {
@@ -206,8 +208,8 @@ test("resetChromaMapConfig restores only chroma map parameters", () => {
 });
 
 
-test("tint control keys cover both tint parameters", () => {
-  assert.deepEqual(TINT_CONTROL_KEYS, ["tintStrength", "tintHue"]);
+test("tint control keys cover tint parameters", () => {
+  assert.deepEqual(TINT_CONTROL_KEYS, ["tintLowHue", "tintHighHue", "tintStrength", "tintAxisCenter"]);
   for (const key of TINT_CONTROL_KEYS) {
     assert.ok(Object.hasOwn(DEFAULT_CONFIG, key), `Unknown tint key: ${key}`);
   }
@@ -216,7 +218,9 @@ test("tint control keys cover both tint parameters", () => {
 test("resetTintConfig restores only tint parameters", () => {
   const config = normalizeConfig({
     tintStrength: 0.8,
-    tintHue: 220,
+    tintLowHue: 220,
+    tintHighHue: 40,
+    tintAxisCenter: -3,
     exposure: 2,
     chromaGamma: 1.4
   });

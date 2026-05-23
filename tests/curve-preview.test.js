@@ -47,6 +47,8 @@ import {
   tonePivotNudgeFromSlopeHandleInputLuma,
   tonalBalanceValueFromVerticalDrag,
   gammaValueFromVerticalDrag,
+  previewScopesForConfigKeys,
+  changedConfigKeys,
   TONAL_BALANCE_HANDLES
 } from "../src/curve-preview.js";
 
@@ -314,4 +316,20 @@ test("chroma fade strength gauge is y-inverted so upward means more fade", () =>
   assert.equal(chromaFadeStrengthFromGaugePointer(50, 50, 100), 1);
   assert.equal(chromaFadeStrengthFromGaugePointer(100, 50, 100), 0.5);
   assert.equal(chromaFadeStrengthFromGaugePointer(150, 50, 100), 0);
+});
+
+
+test("preview dirty scopes keep chroma redraws away from unrelated controls", () => {
+  assert.deepEqual(previewScopesForConfigKeys(["tintStrength"]), ["tint"]);
+  assert.deepEqual(previewScopesForConfigKeys(["lift"]), ["luma"]);
+  assert.deepEqual(previewScopesForConfigKeys(["chromaGamma"]), ["chroma"]);
+  assert.deepEqual(previewScopesForConfigKeys(["exposure"]).sort(), ["chroma", "luma"]);
+  assert.deepEqual(previewScopesForConfigKeys(["gamma"]).sort(), ["chroma", "luma"]);
+  assert.deepEqual(previewScopesForConfigKeys(["tintHighHue", "curveStrength"]).sort(), ["luma", "tint"]);
+});
+
+test("changedConfigKeys reports only actual config changes", () => {
+  assert.deepEqual(changedConfigKeys({gamma: 1, tintStrength: 0}, {gamma: 1, tintStrength: 0}), []);
+  assert.deepEqual(changedConfigKeys({gamma: 1, tintStrength: 0}, {gamma: 1.2, tintStrength: 0}), ["gamma"]);
+  assert.deepEqual(changedConfigKeys({gamma: 1}, {gamma: 1, chromaGamma: 1}), ["chromaGamma"]);
 });

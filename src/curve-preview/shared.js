@@ -1,4 +1,4 @@
-import { CONTROL_GROUPS, normalizeConfig, groupControlDefinitions } from "../config.js";
+import { CONTROL_GROUPS, DEFAULT_CONFIG, normalizeConfig, groupControlDefinitions } from "../config.js";
 
 export const SHADOW_LOW = 0.18;
 export const SHADOW_HIGH = 0.35;
@@ -26,6 +26,40 @@ export const TONAL_BALANCE_HANDLES = Object.freeze([
 ]);
 
 export const CONTROL_DEFINITIONS = new Map(CONTROL_GROUPS.flatMap(group => groupControlDefinitions(group).map(control => [control.key, control])));
+
+
+function configScalar(rawConfig, key) {
+  return rawConfig && Object.prototype.hasOwnProperty.call(rawConfig, key)
+    ? rawConfig[key]
+    : DEFAULT_CONFIG[key];
+}
+
+export function chromaCurveParams(rawConfig = {}) {
+  return {
+    exposure: configScalar(rawConfig, "exposure"),
+    gamma: configScalar(rawConfig, "gamma"),
+    chromaExposure: configScalar(rawConfig, "chromaExposure"),
+    chromaGamma: configScalar(rawConfig, "chromaGamma"),
+    chromaFadeStrength: configScalar(rawConfig, "chromaFadeStrength"),
+    chromaFadeLow: configScalar(rawConfig, "chromaFadeLow"),
+    chromaFadeHigh: configScalar(rawConfig, "chromaFadeHigh")
+  };
+}
+
+export function adjustedLumaFromInputLumaWithParams(inputLuma, params) {
+  return clamp01(gammaAdjust(exposureAdjust(inputLuma, params.exposure), params.gamma));
+}
+
+export function chromaBaseCurveSampleWithParams(inputChroma, params) {
+  return Math.max(gammaAdjust(exposureAdjust(inputChroma, params.chromaExposure), params.chromaGamma), 0);
+}
+
+export function chromaCurveSampleWithParams(inputChroma, inputLuma = 0.5, params) {
+  const luma = adjustedLumaFromInputLumaWithParams(inputLuma, params);
+  const chroma = chromaBaseCurveSampleWithParams(inputChroma, params);
+  const chromaFade = smoothstep(params.chromaFadeLow, params.chromaFadeHigh, luma);
+  return mix(chroma, chroma * chromaFade, params.chromaFadeStrength);
+}
 
 export function normalizeSourceHistograms(nextHistogram) {
   if (!nextHistogram) return {luma: null, chroma: null, chromaByLuma: null, maxChroma: null, chromaDomainMax: null};
@@ -91,12 +125,13 @@ export function transformChromaHistogram(sourceHistogram, rawConfig = {}, output
   const transformed = new Float32Array(binCount);
   const outputMax = Math.max(options.outputMax ?? CHROMA_PREVIEW_MAX, 1e-6);
   const inputMax = Math.max(options.inputMax ?? CHROMA_PREVIEW_MAX, 1e-6);
+  const params = chromaCurveParams(rawConfig);
 
   for (let index = 0; index < sourceHistogram.length; index += 1) {
     const count = sourceHistogram[index];
     if (!count) continue;
     const inputChroma = ((index + 0.5) / sourceHistogram.length) * inputMax;
-    const outputChroma = clamp01(chromaBaseCurveSample(inputChroma, rawConfig) / outputMax);
+    const outputChroma = clamp01(chromaBaseCurveSampleWithParams(inputChroma, params) / outputMax);
     distributeHistogramCount(transformed, outputChroma, count);
   }
 
@@ -111,6 +146,7 @@ export function transformChromaJointHistogram(chromaByLuma, rawConfig = {}, outp
   const transformed = new Float32Array(binCount);
   const outputMax = Math.max(options.outputMax ?? CHROMA_PREVIEW_MAX, 1e-6);
   const inputMax = Math.max(options.inputMax ?? CHROMA_PREVIEW_MAX, 1e-6);
+  const params = chromaCurveParams(rawConfig);
 
   for (let lumaIndex = 0; lumaIndex < inputBinCount; lumaIndex += 1) {
     const inputLuma = (lumaIndex + 0.5) / inputBinCount;
@@ -118,7 +154,7 @@ export function transformChromaJointHistogram(chromaByLuma, rawConfig = {}, outp
       const count = chromaByLuma[lumaIndex * inputBinCount + chromaIndex];
       if (!count) continue;
       const inputChroma = ((chromaIndex + 0.5) / inputBinCount) * inputMax;
-      const outputChroma = clamp01(chromaCurveSample(inputChroma, inputLuma, rawConfig) / outputMax);
+      const outputChroma = clamp01(chromaCurveSampleWithParams(inputChroma, inputLuma, params) / outputMax);
       distributeHistogramCount(transformed, outputChroma, count);
     }
   }
@@ -167,16 +203,11 @@ function distributeHistogramCount(histogram, unitPosition, count) {
 }
 
 export function chromaCurveSample(inputChroma, inputLuma = 0.5, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const luma = adjustedLumaFromInputLuma(inputLuma, config);
-  const chroma = chromaBaseCurveSample(inputChroma, config);
-  const chromaFade = smoothstep(config.chromaFadeLow, config.chromaFadeHigh, luma);
-  return mix(chroma, chroma * chromaFade, config.chromaFadeStrength);
+  return chromaCurveSampleWithParams(inputChroma, inputLuma, chromaCurveParams(rawConfig));
 }
 
 export function chromaBaseCurveSample(inputChroma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return Math.max(gammaAdjust(exposureAdjust(inputChroma, config.chromaExposure), config.chromaGamma), 0);
+  return chromaBaseCurveSampleWithParams(inputChroma, chromaCurveParams(rawConfig));
 }
 
 export const CHROMA_PLACEMENT_CHROMA = 0.18;
@@ -263,8 +294,7 @@ export function exposureAdjust(value, exposureValue) {
 }
 
 export function adjustedLumaFromInputLuma(inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return clamp01(gammaAdjust(exposureAdjust(inputLuma, config.exposure), config.gamma));
+  return adjustedLumaFromInputLumaWithParams(inputLuma, chromaCurveParams(rawConfig));
 }
 
 export function inputLumaFromAdjustedLuma(adjustedLuma, rawConfig = {}) {

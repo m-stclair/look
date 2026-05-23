@@ -1,3 +1,13 @@
+export function normalizeHueDegrees(hueDegrees) {
+  const hue = Number(hueDegrees);
+  if (!Number.isFinite(hue)) return 0;
+  return ((hue % 360) + 360) % 360;
+}
+
+export function hueDeltaDegrees(fromHue, toHue) {
+  return normalizeHueDegrees(Number(toHue) - Number(fromHue));
+}
+
 export function hsv2Rgb(h, s, v) {
   let r;
   let g;
@@ -37,7 +47,7 @@ export function hsv2Rgb(h, s, v) {
 }
 
 export function lookTintFromHueDegrees(hueDegrees) {
-  return hsv2Rgb(Number(hueDegrees) / 360, 1, 1);
+  return hsv2Rgb(normalizeHueDegrees(hueDegrees) / 360, 1, 1);
 }
 
 export function tintCssColor(hueDegrees) {

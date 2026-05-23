@@ -10,7 +10,8 @@ import {
   CHROMA_PREVIEW_MAX,
   LUMA_REFERENCE_SAMPLES,
   chromaBaseCurveSample,
-  chromaCurveSample,
+  chromaCurveParams,
+  chromaCurveSampleWithParams,
   chromaDisplayMaxFromHistogram,
   chromaExposureValueFromHorizontalPosition,
   chromaFadeBoundaryUnitFromValue,
@@ -30,6 +31,64 @@ import {
   mix,
   transformChromaHistogram
 } from "./shared.js";
+
+const CHROMA_GRAPH_METRIC_KEYS = Object.freeze([
+  "exposure",
+  "gamma",
+  "chromaExposure",
+  "chromaGamma",
+  "chromaFadeStrength",
+  "chromaFadeLow",
+  "chromaFadeHigh"
+]);
+
+const CHROMA_METRICS_CACHE_LIMIT = 16;
+const CHROMA_CURVE_CACHE_LIMIT = 24;
+let chromaGraphMetricsCache = new Map();
+let chromaCanvasCurveCaches = new WeakMap();
+let nextHistogramReferenceId = 1;
+const histogramReferenceIds = new WeakMap();
+
+function lruGet(cache, key) {
+  if (!cache.has(key)) return null;
+  const value = cache.get(key);
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
+
+function lruSet(cache, key, value, limit) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > limit) cache.delete(cache.keys().next().value);
+  return value;
+}
+
+function histogramReferenceId(value) {
+  if (!value || (typeof value !== "object" && typeof value !== "function")) return "null";
+  if (!histogramReferenceIds.has(value)) {
+    histogramReferenceIds.set(value, nextHistogramReferenceId);
+    nextHistogramReferenceId += 1;
+  }
+  return histogramReferenceIds.get(value);
+}
+
+export function chromaGraphMetricsSignature(config, handleState = {}) {
+  const normalized = normalizeConfig(config);
+  const parts = CHROMA_GRAPH_METRIC_KEYS.map(key => `${key}:${normalized[key]}`);
+  parts.push(`hist:${histogramReferenceId(handleState.sourceChromaHistogram)}`);
+  parts.push(`histLength:${handleState.sourceChromaHistogram?.length || 0}`);
+  parts.push(`joint:${histogramReferenceId(handleState.sourceChromaByLuma)}`);
+  parts.push(`jointLength:${handleState.sourceChromaByLuma?.length || 0}`);
+  parts.push(`max:${handleState.sourceMaxChroma ?? ""}`);
+  parts.push(`domain:${handleState.sourceChromaDomainMax ?? ""}`);
+  return parts.join("|");
+}
+
+export function resetChromaPreviewCaches() {
+  chromaGraphMetricsCache = new Map();
+  chromaCanvasCurveCaches = new WeakMap();
+}
 
 export function createChromaMapControls(canvas, bindings) {
   const card = canvas.closest?.(".curve-preview-card") || canvas.parentElement;
@@ -499,6 +558,10 @@ function chromaMapHandlePoint(frame, config, handle, yMax = 1, xMax = yMax) {
 }
 
 export function computeChromaGraphMetrics(config, handleState = {}) {
+  const signature = chromaGraphMetricsSignature(config, handleState);
+  const cached = lruGet(chromaGraphMetricsCache, signature);
+  if (cached) return cached;
+
   const inputMax = handleState.sourceChromaDomainMax ?? CHROMA_PREVIEW_MAX;
   const absoluteHistogram = transformChromaHistogram(
     handleState.sourceChromaHistogram,
@@ -517,7 +580,32 @@ export function computeChromaGraphMetrics(config, handleState = {}) {
     handleState.sourceChromaHistogram?.length || 0,
     {chromaByLuma: handleState.sourceChromaByLuma, inputMax, outputMax: displayMax}
   );
-  return {displayMax, p99Chroma, histogram: displayedHistogram};
+  const metrics = {displayMax, p99Chroma, histogram: displayedHistogram};
+  return lruSet(chromaGraphMetricsCache, signature, metrics, CHROMA_METRICS_CACHE_LIMIT);
+}
+
+function getCachedChromaCurves(canvas, config, yMax) {
+  const normalized = normalizeConfig(config);
+  const signature = [
+    `yMax:${yMax}`,
+    ...CHROMA_GRAPH_METRIC_KEYS.map(key => `${key}:${normalized[key]}`)
+  ].join("|");
+  let cache = chromaCanvasCurveCaches.get(canvas);
+  if (!cache) {
+    cache = new Map();
+    chromaCanvasCurveCaches.set(canvas, cache);
+  }
+  const cached = lruGet(cache, signature);
+  if (cached) return cached;
+
+  const params = chromaCurveParams(normalized);
+  const curves = LUMA_REFERENCE_SAMPLES.map(sample => ({
+    ...sample,
+    points: sampleCurve(x => chromaCurveSampleWithParams(x * yMax, sample.luma, params))
+  }));
+  const identity = sampleCurve(x => x * yMax);
+  const nextCurves = {reference: curves, identity};
+  return lruSet(cache, signature, nextCurves, CHROMA_CURVE_CACHE_LIMIT);
 }
 
 export function drawChromaPreview(canvas, config, handleState = {}) {
@@ -526,19 +614,16 @@ export function drawChromaPreview(canvas, config, handleState = {}) {
 
   const metrics = computeChromaGraphMetrics(config, handleState);
   const yMax = metrics.displayMax || CHROMA_GRAPH_Y_MAX;
-  const curves = LUMA_REFERENCE_SAMPLES.map(sample => ({
-    ...sample,
-    points: sampleCurve(x => chromaCurveSample(x * yMax, sample.luma, config))
-  }));
+  const curves = getCachedChromaCurves(canvas, config, yMax);
 
   drawFrame(frame, {yMax, labels: false});
   drawChromaHistogramUnderlay(frame, metrics.histogram);
   drawChromaPercentileIndicator(frame, metrics.p99Chroma, yMax);
-  drawCurve(frame, sampleCurve(x => x * yMax), {alpha: 0.22, dash: [2, 3], width: 1, yMax});
-  for (const curve of curves) {
+  drawCurve(frame, curves.identity, {alpha: 0.22, dash: [2, 3], width: 1, yMax});
+  for (const curve of curves.reference) {
     drawCurve(frame, curve.points, {alpha: curve.alpha, dash: curve.dash, width: curve.label === "mid" ? 2 : 1.25, yMax});
   }
-  drawChromaLegend(frame, curves);
+  drawChromaLegend(frame, curves.reference);
   drawChromaMapHandles(frame, config, yMax, handleState);
 }
 

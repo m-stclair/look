@@ -25,8 +25,9 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const ab = [chroma * Math.cos(hueInput), chroma * Math.sin(hueInput)];
 
   const logL = safeLog2(luma);
-  const center = effectiveToneCenter(config);
-  const pivot = Math.pow(2, center);
+  const toneCenter = effectiveToneCenter(config);
+  const tintCenter = config.tintAxisCenter;
+  const pivot = Math.pow(2, toneCenter);
   const toneSlope = toneSlopeFromControls(config.curveStrength, config.toneShoulder);
   const toneBase = pivotedLogitCurve(luma, pivot, toneSlope);
   const tone = applyLiftMidtoneGain(toneBase, config.lift, config.midtone, config.gain);
@@ -35,10 +36,10 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const chromaBase = mix(chroma, chroma * chromaFade, config.chromaFadeStrength);
   const abBase = chromaBase > 1e-5 ? scale2(normalize2(ab), chromaBase) : [0, 0];
 
-  const toneRatio = clamp(logL - center, -2, 2);
-  const tintLerp = toneRatio * 0.5 + 0.5;
-  const tint = lookTintFromHueDegrees(config.tintHue);
-  const tintVec = tint.map(channel => mix(-channel, channel, tintLerp) * config.tintStrength);
+  const tintSide = clamp(logL - tintCenter, -2, 2);
+  const tintMagnitude = Math.abs(tintSide) * config.tintStrength;
+  const tintEndpoint = lookTintFromHueDegrees(tintSide < 0 ? config.tintLowHue : config.tintHighHue);
+  const tintVec = tintEndpoint.map(channel => channel * tintMagnitude);
 
   const chromaOut = length2(abBase);
   const hueOut = Math.atan2(abBase[1], abBase[0]);

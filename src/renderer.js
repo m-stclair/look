@@ -30,10 +30,12 @@ const LOOK_UNIFORM_NAMES = Object.freeze([
   "u_chroma_fade_low",
   "u_chroma_fade_high",
   "u_shoulder",
-  "u_center",
+  "u_tone_center",
   "u_curve_strength",
-  "u_tint",
+  "u_tint_low",
+  "u_tint_high",
   "u_tint_strength",
+  "u_tint_center",
   "u_lift",
   "u_midtone",
   "u_gain"
@@ -140,7 +142,8 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
 
-    const tint = lookTintFromHueDegrees(config.tintHue);
+    const tintLow = lookTintFromHueDegrees(config.tintLowHue);
+    const tintHigh = lookTintFromHueDegrees(config.tintHighHue);
     gl.uniform2f(lookUniforms.u_resolution, imageSize.width, imageSize.height);
     gl.uniform2f(lookUniforms.u_viewport_origin, 0, 0);
     gl.uniform2f(lookUniforms.u_view_center, 0.5, 0.5);
@@ -153,10 +156,12 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_chroma_fade_high, config.chromaFadeHigh);
     gl.uniform1f(lookUniforms.u_chroma_fade_strength, config.chromaFadeStrength);
     gl.uniform1f(lookUniforms.u_shoulder, config.toneShoulder);
-    gl.uniform1f(lookUniforms.u_center, effectiveToneCenter(config));
+    gl.uniform1f(lookUniforms.u_tone_center, effectiveToneCenter(config));
     gl.uniform1f(lookUniforms.u_curve_strength, config.curveStrength);
-    gl.uniform3f(lookUniforms.u_tint, tint[0], tint[1], tint[2]);
+    gl.uniform3f(lookUniforms.u_tint_low, tintLow[0], tintLow[1], tintLow[2]);
+    gl.uniform3f(lookUniforms.u_tint_high, tintHigh[0], tintHigh[1], tintHigh[2]);
     gl.uniform1f(lookUniforms.u_tint_strength, config.tintStrength);
+    gl.uniform1f(lookUniforms.u_tint_center, config.tintAxisCenter);
     gl.uniform1f(lookUniforms.u_lift, config.lift);
     gl.uniform1f(lookUniforms.u_midtone, config.midtone);
     gl.uniform1f(lookUniforms.u_gain, config.gain);

@@ -21,7 +21,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       gain: -0.02,
       chromaExposure: -0.12,
       chromaGamma: 0.94,
-      tintHue: 42,
+      tintHighHue: 42,
+      tintLowHue: 222,
       tintStrength: 0.18
     }
   }),
@@ -39,7 +40,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       gain: -0.02,
       chromaExposure: -0.3,
       chromaGamma: 1.08,
-      tintHue: 212,
+      tintHighHue: 212,
+      tintLowHue: 32,
       tintStrength: 0.14,
       chromaFadeStrength: 0.8,
       chromaFadeLow: -2.2,
@@ -61,7 +63,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       chromaFadeStrength: 0.12,
       chromaFadeLow: -3.4,
       chromaFadeHigh: 2.8,
-      tintHue: 68,
+      tintHighHue: 68,
+      tintLowHue: 248,
       tintStrength: 0.05
     }
   })

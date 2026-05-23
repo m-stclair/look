@@ -15,10 +15,12 @@ uniform float u_chroma_fade_strength;
 uniform float u_chroma_fade_low;
 uniform float u_chroma_fade_high;
 uniform float u_shoulder;
-uniform float u_center;
+uniform float u_tone_center;
 uniform float u_curve_strength;
-uniform vec3 u_tint;
+uniform vec3 u_tint_low;
+uniform vec3 u_tint_high;
 uniform float u_tint_strength;
+uniform float u_tint_center;
 uniform float u_lift;
 uniform float u_midtone;
 uniform float u_gain;
@@ -144,7 +146,7 @@ vec3 applyLook(vec3 srgb) {
     vec2 ab = chroma * vec2(cos(hue), sin(hue));
 
     float logL = safeLog2(luma);
-    float pivot = exp2(u_center);
+    float pivot = exp2(u_tone_center);
     float tone_slope = toneSlopeFromControls(u_curve_strength, u_shoulder);
     float tone_base = pivotedLogitCurve(luma, pivot, tone_slope);
     float tone = applyLiftMidtoneGain(tone_base, u_lift, u_midtone, u_gain);
@@ -157,9 +159,10 @@ vec3 applyLook(vec3 srgb) {
         ab_base = chroma_base * normalize(ab);
     }
 
-    float tone_ratio = clamp(logL - u_center, -2.0, 2.0);
-    float tint_lerp = tone_ratio * 0.5 + 0.5;
-    vec3 tint_vec = mix(-u_tint, u_tint, tint_lerp) * u_tint_strength;
+    float tint_side = clamp(logL - u_tint_center, -2.0, 2.0);
+    float tint_magnitude = abs(tint_side) * u_tint_strength;
+    vec3 tint_endpoint = tint_side < 0.0 ? u_tint_low : u_tint_high;
+    vec3 tint_vec = tint_endpoint * tint_magnitude;
 
     float chroma_out = length(ab_base);
     float hue_out = atan(ab_base.y, ab_base.x);
