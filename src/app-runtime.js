@@ -3,6 +3,7 @@ import { cloneDefaultConfig } from "./config.js";
 import { createCurvePreviews } from "./curve-preview.js";
 import { createDemoImage, loadImageFile } from "./image.js";
 import { createImageHistogramsFromImage } from "./histogram.js";
+import { createLookController } from "./look-ui.js";
 import { createLookRenderer } from "./renderer.js";
 import { loadShaderSources } from "./shaders/index.js";
 import { setError, setStatus } from "./ui.js";
@@ -13,6 +14,18 @@ export async function startApp() {
   const resetButton = mustFind("resetButton");
   const exportButton = mustFind("exportButton");
   const curvePreviewRoot = document.getElementById("curvePreviewRoot");
+  const lookControllerElements = {
+    root: document.getElementById("lookBar"),
+    select: document.getElementById("lookSelect"),
+    nameInput: document.getElementById("lookNameInput"),
+    dirtyBadge: document.getElementById("lookDirty"),
+    saveButton: document.getElementById("saveLookButton"),
+    duplicateButton: document.getElementById("duplicateLookButton"),
+    deleteButton: document.getElementById("deleteLookButton"),
+    exportButton: document.getElementById("exportLookButton"),
+    exportCubeButton: document.getElementById("exportCubeButton"),
+    importInput: document.getElementById("importLookInput")
+  };
   const status = mustFind("status");
   const error = mustFind("error");
   const zoomOutButton = document.getElementById("zoomOutButton");
@@ -36,6 +49,7 @@ export async function startApp() {
   const renderer = createLookRenderer(canvas, shaderSources);
   const config = cloneDefaultConfig();
   let curvePreviews = null;
+  let lookController = null;
   const applyConfig = (nextConfig) => {
     renderer.setConfig(nextConfig);
     curvePreviews?.render(nextConfig);
@@ -44,8 +58,16 @@ export async function startApp() {
     onConfigChange: nextConfig => {
       Object.assign(config, nextConfig);
       applyConfig(config);
+      lookController?.markConfigChanged();
     }
   }) : null;
+  lookController = createLookController({
+    elements: lookControllerElements,
+    config,
+    applyConfig,
+    setStatus: (message, tone) => setStatus(status, message, tone),
+    setError: nextError => setError(error, nextError)
+  });
   const compareControls = bindCompareControls({
     canvas,
     renderer,
@@ -100,10 +122,13 @@ export async function startApp() {
   });
 
   resetButton.addEventListener("click", () => {
-    Object.assign(config, cloneDefaultConfig());
-    applyConfig(config);
-    curvePreviews?.render(config);
-    setStatus(status, "Reset all controls to Vandal Look defaults.", "neutral");
+    const look = lookController?.resetActiveLook?.();
+    if (!look) {
+      Object.assign(config, cloneDefaultConfig());
+      applyConfig(config);
+      curvePreviews?.render(config);
+    }
+    setStatus(status, look ? `Reset controls to ${look.name}.` : "Reset all controls to look defaults.", "neutral");
   });
 
   exportButton.addEventListener("click", async () => {
@@ -118,7 +143,7 @@ export async function startApp() {
     }
   });
 
-  return {renderer, config, compareControls, curvePreviews};
+  return {renderer, config, compareControls, curvePreviews, lookController};
 }
 
 function bindCompareControls({canvas, renderer, compareToggle, compareSplit, compareSplitValue}) {

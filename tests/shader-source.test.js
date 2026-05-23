@@ -45,7 +45,7 @@ test("look shader inlines palette-synth style OKLab helpers", async () => {
   assert.match(source, /vec3\s+oklchToSrgb/);
 });
 
-test("look shader keeps the Vandal Look uniform surface and adjustment uniforms", async () => {
+test("look shader keeps uniform surface and adjustment uniforms", async () => {
   const source = await readFile(shaderPath, "utf8");
   for (const uniform of requiredUniforms) {
     assert.ok(source.includes(uniform), `Missing ${uniform}`);

@@ -31,8 +31,6 @@ const float hHigh = 0.8;
 
 out vec4 outColor;
 
-// Inline OKLab conversion code lifted from palette-synth's shader style.
-// This extraction intentionally avoids Vandal's broad colorconvert.glsl include.
 vec3 srgb2linear(vec3 c) {
     return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }

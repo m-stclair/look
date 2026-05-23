@@ -12,6 +12,20 @@
       <div class="stage-meta">
         <div class="stage-toolbar">
           <div class="toolbar-cluster">
+            <div id="lookBar" class="look-tools" aria-label="Look presets">
+              <select id="lookSelect" class="look-select" aria-label="Load look"></select>
+              <input id="lookNameInput" class="look-name" type="text" value="Untitled Look" aria-label="Look name">
+              <span id="lookDirty" class="look-dirty">Built-in</span>
+              <button id="saveLookButton" type="button" class="mini-control">Save</button>
+              <button id="duplicateLookButton" type="button" class="mini-control">Copy</button>
+              <button id="deleteLookButton" type="button" class="mini-control">Delete</button>
+              <button id="exportLookButton" type="button" class="mini-control">JSON</button>
+              <button id="exportCubeButton" type="button" class="mini-control">LUT</button>
+              <label class="file-button mini-control">
+                <input id="importLookInput" type="file" accept="application/json,.json,.look.json">
+                Import
+              </label>
+            </div>
             <div class="view-tools" aria-label="View controls">
               <button id="zoomOutButton" type="button" class="mini-control" aria-label="Zoom out">−</button>
               <span class="view-pill"><strong id="viewStatus">100%</strong></span>
@@ -47,7 +61,7 @@
 
     <aside id="toolPane" class="tool-pane" aria-label="Effect controls">
       <div class="pane-titlebar">
-        <button id="toolPaneToggle" class="pane-toggle" type="button" aria-expanded="true" aria-controls="controls">Tools</button>
+        <button id="toolPaneToggle" class="pane-toggle" type="button" aria-expanded="true" aria-controls="curvePreviewRoot">Tools</button>
       </div>
       <section id="curvePreviewRoot" class="curve-previews" aria-label="Curve previews"></section>
     </aside>
