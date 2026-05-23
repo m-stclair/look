@@ -1,12 +1,15 @@
-import { CONTROL_GROUPS, DEFAULT_CONFIG, resetControlGroup } from "./config.js";
+import { CONTROL_GROUPS, DEFAULT_CONFIG } from "./config.js";
 import { tintCssColor } from "./color-utils.js";
 
-export function buildControls(root, config, onChange) {
+export function buildControls(root, config, onChange, options = {}) {
   root.textContent = "";
   const controlsByKey = new Map();
   const groupNodes = new Map();
+  const excludeKeys = new Set(options.excludeKeys || []);
 
   for (const group of CONTROL_GROUPS) {
+    const visibleControls = (group.controls || []).filter(control => !excludeKeys.has(control.key));
+    if (!visibleControls.length) continue;
     const fieldset = document.createElement("fieldset");
     fieldset.className = "control-panel";
     fieldset.dataset.group = group.id;
@@ -43,7 +46,7 @@ export function buildControls(root, config, onChange) {
     resetGroupButton.textContent = "Reset";
     resetGroupButton.setAttribute("aria-label", `Reset ${group.label}`);
     resetGroupButton.addEventListener("click", () => {
-      resetControlGroup(config, group.id);
+      for (const control of visibleControls) config[control.key] = DEFAULT_CONFIG[control.key];
       sync(config);
       onChange(config);
     });
@@ -51,7 +54,7 @@ export function buildControls(root, config, onChange) {
     header.append(resetGroupButton);
     panelBody.append(header);
 
-    for (const control of group.controls) {
+    for (const control of visibleControls) {
       const row = createControlRow(control, config, nextValue => {
         config[control.key] = nextValue;
         sync(config);

@@ -100,6 +100,34 @@ float safeLog2(float x) {
     return log2(max(x, 1e-6));
 }
 
+float logit(float x) {
+    float safe_x = clamp(x, 1e-6, 1.0 - 1e-6);
+    return log(safe_x / (1.0 - safe_x));
+}
+
+float invLogit(float x) {
+    if (x >= 0.0) {
+        float z = exp(-x);
+        return 1.0 / (1.0 + z);
+    }
+    float z = exp(x);
+    return z / (1.0 + z);
+}
+
+float toneSlopeFromControls(float strength, float shoulder) {
+    return mix(1.0, max(shoulder, 1e-4), clamp(strength, 0.0, 1.0));
+}
+
+float pivotedLogitCurve(float L, float pivot, float slope) {
+    if (L <= 0.0) return 0.0;
+    if (L >= 1.0) return 1.0;
+    float safe_pivot = clamp(pivot, 1e-6, 1.0 - 1e-6);
+    float safe_slope = max(slope, 1e-4);
+    if (abs(safe_slope - 1.0) < 1e-6) return L;
+    float t = logit(safe_pivot) + safe_slope * (logit(L) - logit(safe_pivot));
+    return clamp(invLogit(t), 0.0, 1.0);
+}
+
 float applyLiftMidtoneGain(float L, float lift, float midtone, float gain) {
     float shadow = 1.0 - smoothstep(sLow, sHigh, L);
     float mid = smoothstep(sLow, sHigh, L) * (1.0 - smoothstep(hLow, hHigh, L));
@@ -118,8 +146,9 @@ vec3 applyLook(vec3 srgb) {
     vec2 ab = chroma * vec2(cos(hue), sin(hue));
 
     float logL = safeLog2(luma);
-    float curve = 1.0 / (1.0 + exp(-u_shoulder * (logL - u_center)));
-    float tone_base = mix(luma, curve, u_curve_strength);
+    float pivot = exp2(u_center);
+    float tone_slope = toneSlopeFromControls(u_curve_strength, u_shoulder);
+    float tone_base = pivotedLogitCurve(luma, pivot, tone_slope);
     float tone = applyLiftMidtoneGain(tone_base, u_lift, u_midtone, u_gain);
 
     float chroma_fade = smoothstep(u_chroma_fade_low, u_chroma_fade_high, luma);

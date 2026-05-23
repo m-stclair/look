@@ -3,6 +3,7 @@ import { linkProgram } from "./gl/programs.js";
 import { allocateRgbaTexture, createTexture, uploadImageTexture } from "./gl/textures.js";
 import { renderViewComposite, VIEW_COMPOSITE_UNIFORM_NAMES } from "./gl/view-composite-renderer.js";
 import { normalizeConfig } from "./config.js";
+import { effectiveToneCenter } from "./curve-preview.js";
 import { lookTintFromHueDegrees } from "./color-utils.js";
 import {
   canvasRenderSize,
@@ -152,7 +153,7 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_chroma_fade_high, config.chromaFadeHigh);
     gl.uniform1f(lookUniforms.u_chroma_fade_strength, config.chromaFadeStrength);
     gl.uniform1f(lookUniforms.u_shoulder, config.toneShoulder);
-    gl.uniform1f(lookUniforms.u_center, config.toneCenter);
+    gl.uniform1f(lookUniforms.u_center, effectiveToneCenter(config));
     gl.uniform1f(lookUniforms.u_curve_strength, config.curveStrength);
     gl.uniform3f(lookUniforms.u_tint, tint[0], tint[1], tint[2]);
     gl.uniform1f(lookUniforms.u_tint_strength, config.tintStrength);

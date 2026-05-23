@@ -4,7 +4,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   chromaGamma: 1,
   chromaExposure: 0,
   toneShoulder: 2.5,
-  toneCenter: -1,
+  tonePivotNudge: 0,
   curveStrength: 0,
   chromaFadeStrength: 0,
   chromaFadeLow: -3,
@@ -15,6 +15,25 @@ export const DEFAULT_CONFIG = Object.freeze({
   midtone: 0,
   gain: 0
 });
+
+export const TONE_MAP_CONTROL_KEYS = Object.freeze([
+  "exposure",
+  "gamma",
+  "curveStrength",
+  "toneShoulder",
+  "tonePivotNudge",
+  "lift",
+  "midtone",
+  "gain"
+]);
+
+export const CHROMA_MAP_CONTROL_KEYS = Object.freeze([
+  "chromaExposure",
+  "chromaGamma",
+  "chromaFadeStrength",
+  "chromaFadeLow",
+  "chromaFadeHigh"
+]);
 
 export const CONTROL_GROUPS = Object.freeze([
   {
@@ -31,11 +50,13 @@ export const CONTROL_GROUPS = Object.freeze([
   {
     id: "tone",
     label: "Tone Curve",
-    description: "Procedural S-curve character: amount, shoulder, and pivot.",
+    description: "Pivoted S-curve character: slope and shoulder; the S handle nudges the anchor horizontally.",
     controls: [
       {key: "curveStrength", label: "Tone Amount", min: 0, max: 1, step: 0.01},
-      {key: "toneShoulder", label: "Shoulder", min: 1, max: 6, step: 0.02},
-      {key: "toneCenter", label: "Pivot", min: -8, max: 0, step: 0.05}
+      {key: "toneShoulder", label: "Shoulder", min: 1, max: 6, step: 0.02}
+    ],
+    hiddenControls: [
+      {key: "tonePivotNudge", label: "Pivot Nudge", min: -1, max: 1, step: 0.001}
     ]
   },
   {
@@ -69,6 +90,14 @@ export const CONTROL_GROUPS = Object.freeze([
   }
 ]);
 
+export function groupControlDefinitions(group) {
+  return [...(group.controls || []), ...(group.hiddenControls || [])];
+}
+
+export function visibleControlDefinitions(group) {
+  return [...(group.controls || [])];
+}
+
 export function cloneDefaultConfig() {
   return {...DEFAULT_CONFIG};
 }
@@ -80,8 +109,22 @@ export function normalizeConfig(config = {}) {
 export function resetControlGroup(config, groupId) {
   const group = CONTROL_GROUPS.find(candidate => candidate.id === groupId);
   if (!group) throw new Error(`Unknown control group: ${groupId}`);
-  for (const control of group.controls) {
+  for (const control of groupControlDefinitions(group)) {
     config[control.key] = DEFAULT_CONFIG[control.key];
+  }
+  return config;
+}
+
+export function resetToneMapConfig(config) {
+  for (const key of TONE_MAP_CONTROL_KEYS) {
+    config[key] = DEFAULT_CONFIG[key];
+  }
+  return config;
+}
+
+export function resetChromaMapConfig(config) {
+  for (const key of CHROMA_MAP_CONTROL_KEYS) {
+    config[key] = DEFAULT_CONFIG[key];
   }
   return config;
 }

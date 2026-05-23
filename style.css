@@ -314,8 +314,20 @@ canvas.is-splitting { cursor: col-resize; }
 }
 
 .floating-luma-window .curve-preview-card canvas.is-over-tonal-handle,
-.floating-luma-window .curve-preview-card canvas.is-dragging-tonal-handle {
+.floating-luma-window .curve-preview-card canvas.is-dragging-tonal-handle,
+.floating-luma-window .curve-preview-card canvas.is-over-shape-handle,
+.floating-luma-window .curve-preview-card canvas.is-dragging-shape-handle {
   cursor: ns-resize;
+}
+
+.floating-luma-window .curve-preview-card canvas.is-over-exposure-handle,
+.floating-luma-window .curve-preview-card canvas.is-dragging-exposure-handle {
+  cursor: ew-resize;
+}
+
+.floating-luma-window .curve-preview-card canvas.is-over-slope-handle,
+.floating-luma-window .curve-preview-card canvas.is-dragging-slope-handle {
+  cursor: move;
 }
 
 .stage-status-footer {
@@ -889,47 +901,202 @@ input[type="number"]:hover { border-color: var(--line-strong); }
   display: grid;
 }
 
-.tone-pivot-rail {
-  position: absolute;
-  left: 21px;
-  right: 21px;
-  bottom: 21px;
-  z-index: 4;
-  height: 20px;
-  cursor: ew-resize;
+
+.layout.is-tone-map-expanded,
+.layout.is-chroma-map-expanded {
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
+}
+
+.tone-map-card {
+  gap: 7px;
+  padding: 8px;
+  border-color: var(--line-strong);
+  background: linear-gradient(180deg, rgba(21,26,33,.92), rgba(12,16,21,.98));
+}
+
+.tone-map-card .curve-preview-header {
+  align-items: center;
+}
+
+.tone-map-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.tone-map-action {
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.tone-map-card canvas {
+  height: 205px;
   pointer-events: auto;
+  touch-action: none;
 }
 
-.tone-pivot-track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 9px;
-  height: 1px;
-  background: rgba(231,234,240,.38);
-  box-shadow: 0 0 0 1px rgba(8,10,13,.48);
+.tone-map-card.is-expanded canvas {
+  height: min(42vh, 340px);
 }
 
-.tone-pivot-handle {
-  position: absolute;
-  top: 2px;
-  width: 9px;
-  height: 16px;
-  transform: translateX(-50%);
-  border: 1px solid rgba(231,234,240,.82);
-  border-radius: 999px;
-  background: rgba(12,16,21,.86);
-  box-shadow: 0 1px 8px rgba(0,0,0,.34);
+.tone-map-card canvas.is-over-tonal-handle,
+.tone-map-card canvas.is-dragging-tonal-handle,
+.tone-map-card canvas.is-over-shape-handle,
+.tone-map-card canvas.is-dragging-shape-handle,
+.tone-map-card canvas.is-over-shoulder-gauge,
+.tone-map-card canvas.is-dragging-shoulder-gauge {
+  cursor: ns-resize;
 }
 
-.tone-pivot-rail:hover .tone-pivot-handle,
-.tone-pivot-rail:focus-visible .tone-pivot-handle,
-.tone-pivot-rail.is-dragging .tone-pivot-handle {
-  border-color: var(--accent);
-  background: rgba(143,180,223,.18);
+.tone-map-card canvas.is-over-exposure-handle,
+.tone-map-card canvas.is-dragging-exposure-handle {
+  cursor: ew-resize;
 }
 
-.tone-pivot-rail:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 2px;
+.tone-map-card canvas.is-over-slope-handle,
+.tone-map-card canvas.is-dragging-slope-handle {
+  cursor: move;
+}
+
+.tone-map-readouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.tone-map-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 21px;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(3,5,7,.28);
+  color: var(--soft);
+  font: 9.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tone-map-details {
+  display: none;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.tone-map-card.is-details-open .tone-map-details {
+  display: grid;
+}
+
+.tone-map-details .tone-dock-range {
+  grid-template-columns: 64px minmax(0, 1fr) 2.25rem;
+  gap: 6px;
+  width: 100%;
+}
+
+.tone-map-details .tone-dock-range input[type="range"] {
+  width: 100%;
+}
+
+@media (max-width: 880px) {
+  .layout.is-tone-map-expanded {
+    grid-template-columns: 1fr;
+  }
+
+  .tone-map-card.is-expanded canvas {
+    height: 260px;
+  }
+}
+
+@media (max-width: 560px) {
+  .tone-map-readouts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tone-map-card canvas,
+  .tone-map-card.is-expanded canvas {
+    height: 190px;
+  }
+}
+
+.chroma-map-card {
+  gap: 7px;
+  padding: 8px;
+  border-color: var(--line-strong);
+  background: linear-gradient(180deg, rgba(20,24,31,.86), rgba(12,16,21,.98));
+}
+
+.chroma-map-card .curve-preview-header {
+  align-items: center;
+}
+
+.chroma-map-card canvas {
+  height: 170px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.chroma-map-card.is-expanded canvas {
+  height: min(34vh, 280px);
+}
+
+.chroma-map-card canvas.is-over-chroma-handle,
+.chroma-map-card canvas.is-dragging-chroma-handle,
+.chroma-map-card canvas.is-over-chroma-gamma,
+.chroma-map-card canvas.is-dragging-chroma-gamma,
+.chroma-map-card canvas.is-over-chroma-fade-strength,
+.chroma-map-card canvas.is-dragging-chroma-fade-strength {
+  cursor: ns-resize;
+}
+
+.chroma-map-card canvas.is-over-chroma-placement,
+.chroma-map-card canvas.is-dragging-chroma-placement,
+.chroma-map-card canvas.is-over-chroma-fade-rail,
+.chroma-map-card canvas.is-dragging-chroma-fade-rail {
+  cursor: ew-resize;
+}
+
+.chroma-map-readouts {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.chroma-map-details .tone-dock-range {
+  grid-template-columns: 76px minmax(0, 1fr) 2.25rem;
+}
+
+@media (max-width: 880px) {
+  .layout.is-chroma-map-expanded {
+    grid-template-columns: 1fr;
+  }
+
+  .chroma-map-card.is-expanded canvas {
+    height: 230px;
+  }
+}
+
+@media (max-width: 560px) {
+  .chroma-map-readouts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chroma-map-card canvas,
+  .chroma-map-card.is-expanded canvas {
+    height: 160px;
+  }
+}
+
+.chroma-map-card.is-details-open .tone-map-details {
+  display: grid;
 }

@@ -1,8 +1,8 @@
 import { compareSplitFromClientX, clientNearCompareSplit } from "./compare-split.js";
-import { cloneDefaultConfig } from "./config.js";
+import { CHROMA_MAP_CONTROL_KEYS, cloneDefaultConfig, TONE_MAP_CONTROL_KEYS } from "./config.js";
 import { createCurvePreviews } from "./curve-preview.js";
 import { createDemoImage, loadImageFile } from "./image.js";
-import { createLumaHistogramFromImage } from "./histogram.js";
+import { createImageHistogramsFromImage } from "./histogram.js";
 import { createLookRenderer } from "./renderer.js";
 import { loadShaderSources } from "./shaders/index.js";
 import { buildControls, setError, setStatus } from "./ui.js";
@@ -14,7 +14,6 @@ export async function startApp() {
   const exportButton = mustFind("exportButton");
   const controlsRoot = mustFind("controls");
   const curvePreviewRoot = document.getElementById("curvePreviewRoot");
-  const floatingLumaRoot = document.getElementById("floatingLumaRoot");
   const status = mustFind("status");
   const error = mustFind("error");
   const zoomOutButton = document.getElementById("zoomOutButton");
@@ -43,11 +42,11 @@ export async function startApp() {
     renderer.setConfig(nextConfig);
     curvePreviews?.render(nextConfig);
   };
+  const graphOwnedControlKeys = [...TONE_MAP_CONTROL_KEYS, ...CHROMA_MAP_CONTROL_KEYS];
   const controls = buildControls(controlsRoot, config, nextConfig => {
     applyConfig(nextConfig);
-  });
+  }, {excludeKeys: graphOwnedControlKeys});
   curvePreviews = curvePreviewRoot ? createCurvePreviews(curvePreviewRoot, config, {
-    lumaRoot: floatingLumaRoot,
     onConfigChange: nextConfig => {
       Object.assign(config, nextConfig);
       applyConfig(config, {syncControls: true});
@@ -286,9 +285,9 @@ function mustFind(id) {
 function syncSourceHistogram(source, curvePreviews) {
   if (!curvePreviews?.setHistogram) return;
   try {
-    curvePreviews.setHistogram(createLumaHistogramFromImage(source));
+    curvePreviews.setHistogram(createImageHistogramsFromImage(source));
   } catch (histogramError) {
-    console.warn("Unable to build luma histogram.", histogramError);
+    console.warn("Unable to build source histograms.", histogramError);
     curvePreviews.setHistogram(null);
   }
 }
