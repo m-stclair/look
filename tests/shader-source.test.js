@@ -10,7 +10,7 @@ const requiredUniforms = [
   "u_exposure",
   "u_chroma_gamma",
   "u_chroma_exposure",
-  "u_chroma_weight",
+  "u_chroma_fade_strength",
   "u_center",
   "u_shoulder",
   "u_lift",

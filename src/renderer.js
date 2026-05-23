@@ -96,7 +96,6 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource}) {
     gl.uniform1f(uniforms.u_exposure, config.exposure);
     gl.uniform1f(uniforms.u_chroma_gamma, config.chromaGamma);
     gl.uniform1f(uniforms.u_chroma_exposure, config.chromaExposure);
-    gl.uniform1f(uniforms.u_chroma_weight, config.chromaWeight);
     gl.uniform1f(uniforms.u_chroma_fade_low, config.chromaFadeLow);
     gl.uniform1f(uniforms.u_chroma_fade_high, config.chromaFadeHigh);
     gl.uniform1f(uniforms.u_chroma_fade_strength, config.chromaFadeStrength);

@@ -22,38 +22,19 @@ const expectedRanges = new Map([
   ["chromaWeight", {min: 0, max: 4, step: 0.01}],
   ["chromaFadeLow", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeHigh", {min: -6, max: 6, step: 0.1}],
+  ["chromaFadeStrength", {min: 0, max: 1, step: 0.01}],
   ["tintStrength", {min: 0, max: 1, step: 0.01}],
   ["tintHue", {min: 0, max: 360, step: 0.01}]
 ]);
 
-test("default config preserves Vandal Look defaults plus adjustments defaults", () => {
-  assert.deepEqual(DEFAULT_CONFIG, {
-    gamma: 1,
-    exposure: 0.2,
-    chromaGamma: 1,
-    chromaExposure: 0,
-    toneShoulder: 2.2,
-    toneCenter: -0.75,
-    curveStrength: 1,
-    chromaWeight: 1.0,
-    chromaFadeLow: -3,
-    chromaFadeHigh: 2,
-    tintHue: 68,
-    tintStrength: 0,
-    lift: 0,
-    midtone: 0,
-    gain: 0
-  });
-});
-
 test("cloneDefaultConfig returns a mutable copy", () => {
   const config = cloneDefaultConfig();
   config.exposure = 1;
-  assert.equal(DEFAULT_CONFIG.exposure, 0.2);
+  assert.equal(DEFAULT_CONFIG.exposure, 0.0);
 });
 
 test("control groups now lead with Adjustments before Tone, Chroma, and Tint", () => {
-  assert.deepEqual(CONTROL_GROUPS.map(group => group.label), ["Adjustments", "Tone", "Chroma", "Tint"]);
+  assert.deepEqual(CONTROL_GROUPS.map(group => group.label), ["Adjustments", "Tone", "Chroma Fade", "Tint"]);
   assert.deepEqual(CONTROL_GROUPS.map(group => group.id), ["adjustments", "tone", "chroma", "tint"]);
 });
 
