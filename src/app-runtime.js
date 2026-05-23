@@ -1,5 +1,6 @@
 import { compareSplitFromClientX, clientNearCompareSplit } from "./compare-split.js";
 import { cloneDefaultConfig } from "./config.js";
+import { createCurvePreviews } from "./curve-preview.js";
 import { createDemoImage, loadImageFile } from "./image.js";
 import { createLookRenderer } from "./renderer.js";
 import { loadShaderSources } from "./shaders/index.js";
@@ -11,6 +12,7 @@ export async function startApp() {
   const resetButton = mustFind("resetButton");
   const exportButton = mustFind("exportButton");
   const controlsRoot = mustFind("controls");
+  const curvePreviewRoot = document.getElementById("curvePreviewRoot");
   const status = mustFind("status");
   const error = mustFind("error");
   const zoomOutButton = document.getElementById("zoomOutButton");
@@ -33,7 +35,11 @@ export async function startApp() {
   const shaderSources = await loadShaderSources();
   const renderer = createLookRenderer(canvas, shaderSources);
   const config = cloneDefaultConfig();
-  const controls = buildControls(controlsRoot, config, nextConfig => renderer.setConfig(nextConfig));
+  const curvePreviews = curvePreviewRoot ? createCurvePreviews(curvePreviewRoot, config) : null;
+  const controls = buildControls(controlsRoot, config, nextConfig => {
+    renderer.setConfig(nextConfig);
+    curvePreviews?.render(nextConfig);
+  });
   const compareControls = bindCompareControls({
     canvas,
     renderer,
@@ -89,6 +95,7 @@ export async function startApp() {
     Object.assign(config, cloneDefaultConfig());
     controls.sync(config);
     renderer.setConfig(config);
+    curvePreviews?.render(config);
     setStatus(status, "Reset all controls to Vandal Look defaults.", "neutral");
   });
 
@@ -104,7 +111,7 @@ export async function startApp() {
     }
   });
 
-  return {renderer, config, controls, compareControls};
+  return {renderer, config, controls, compareControls, curvePreviews};
 }
 
 function bindCompareControls({canvas, renderer, compareToggle, compareSplit, compareSplitValue}) {

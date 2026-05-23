@@ -24,6 +24,12 @@ const requiredUniforms = [
   "u_curve_strength"
 ];
 
+
+test("look shader requests high precision floats for color math", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.match(source, /precision\s+highp\s+float/);
+});
+
 test("look shader has no external include dependency", async () => {
   const source = await readFile(shaderPath, "utf8");
   assert.equal(source.includes("#include"), false);
