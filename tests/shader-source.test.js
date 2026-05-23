@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const shaderPath = new URL("../src/shaders/look.frag", import.meta.url);
+
+const requiredUniforms = [
+  "u_resolution",
+  "u_gamma",
+  "u_exposure",
+  "u_chroma_gamma",
+  "u_chroma_exposure",
+  "u_chroma_weight",
+  "u_center",
+  "u_shoulder",
+  "u_lift",
+  "u_midtone",
+  "u_gain",
+  "u_chroma_fade_low",
+  "u_chroma_fade_high",
+  "u_tint",
+  "u_tint_strength",
+  "u_curve_strength"
+];
+
+test("look shader has no external include dependency", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.equal(source.includes("#include"), false);
+});
+
+test("look shader inlines palette-synth style OKLab helpers", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.match(source, /vec3\s+srgb2linear/);
+  assert.match(source, /vec3\s+linear2srgb/);
+  assert.match(source, /vec3\s+linearRgbToOklab/);
+  assert.match(source, /vec3\s+oklabToLinearRgb/);
+  assert.match(source, /vec3\s+srgbToOklch/);
+  assert.match(source, /vec3\s+oklchToSrgb/);
+});
+
+test("look shader keeps the Vandal Look uniform surface and adjustment uniforms", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  for (const uniform of requiredUniforms) {
+    assert.ok(source.includes(uniform), `Missing ${uniform}`);
+  }
+});
+
+test("look shader includes gamma and exposure shaping helpers", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.match(source, /float\s+gammaAdjust\s*\(/);
+  assert.match(source, /float\s+exposureAdjust\s*\(/);
+  assert.match(source, /gammaAdjust\(exposureAdjust\(lch\.x, u_exposure\), u_gamma\)/);
+  assert.match(source, /gammaAdjust\(exposureAdjust\(lch\.y, u_chroma_exposure\), u_chroma_gamma\)/);
+});

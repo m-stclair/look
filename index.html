@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Look Minimal</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="workbench" class="layout" aria-label="Look Minimal workbench">
+    <section class="stage-card" aria-label="Look render preview">
+      <div class="stage-meta">
+        <div class="stage-toolbar">
+          <div class="toolbar-cluster">
+            <div class="view-tools" aria-label="View controls">
+              <button id="zoomOutButton" type="button" class="mini-control" aria-label="Zoom out">−</button>
+              <span class="view-pill"><strong id="viewStatus">100%</strong></span>
+              <button id="zoomInButton" type="button" class="mini-control" aria-label="Zoom in">+</button>
+            </div>
+            <div class="actions app-actions" aria-label="Application actions">
+              <label class="file-button">
+                <input id="imageInput" type="file" accept="image/*">
+                Open
+              </label>
+              <button id="resetButton" type="button">Reset</button>
+              <button id="exportButton" type="button">PNG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-shell">
+        <canvas id="preview" width="960" height="540"></canvas>
+      </div>
+
+      <footer class="stage-status-footer" aria-label="Status">
+        <span id="status" role="status">Ready.</span>
+      </footer>
+
+      <div id="error" class="error" hidden></div>
+    </section>
+
+    <aside id="toolPane" class="tool-pane" aria-label="Effect controls">
+      <div class="pane-titlebar">
+        <button id="toolPaneToggle" class="pane-toggle" type="button" aria-expanded="true" aria-controls="controls">Tools</button>
+      </div>
+      <form id="controls" class="controls"></form>
+    </aside>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
