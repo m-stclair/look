@@ -19,7 +19,6 @@ const expectedRanges = new Map([
   ["lift", {min: -0.2, max: 0.2, step: 0.01}],
   ["midtone", {min: -0.2, max: 0.2, step: 0.01}],
   ["gain", {min: -0.2, max: 0.2, step: 0.01}],
-  ["chromaWeight", {min: 0, max: 4, step: 0.01}],
   ["chromaFadeLow", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeHigh", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeStrength", {min: 0, max: 1, step: 0.01}],
@@ -77,7 +76,6 @@ test("resetControlGroup restores only the selected group", () => {
     gamma: 1.4,
     exposure: 3,
     curveStrength: 0.2,
-    chromaWeight: 3,
     tintStrength: 0.6
   });
 
@@ -86,6 +84,5 @@ test("resetControlGroup restores only the selected group", () => {
   assert.equal(config.gamma, DEFAULT_CONFIG.gamma);
   assert.equal(config.exposure, DEFAULT_CONFIG.exposure);
   assert.equal(config.curveStrength, 0.2);
-  assert.equal(config.chromaWeight, 3);
   assert.equal(config.tintStrength, 0.6);
 });
