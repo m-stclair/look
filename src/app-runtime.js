@@ -1,18 +1,17 @@
 import { compareSplitFromClientX, clientNearCompareSplit } from "./compare-split.js";
-import { CHROMA_MAP_CONTROL_KEYS, cloneDefaultConfig, TONE_MAP_CONTROL_KEYS } from "./config.js";
+import { cloneDefaultConfig } from "./config.js";
 import { createCurvePreviews } from "./curve-preview.js";
 import { createDemoImage, loadImageFile } from "./image.js";
 import { createImageHistogramsFromImage } from "./histogram.js";
 import { createLookRenderer } from "./renderer.js";
 import { loadShaderSources } from "./shaders/index.js";
-import { buildControls, setError, setStatus } from "./ui.js";
+import { setError, setStatus } from "./ui.js";
 
 export async function startApp() {
   const canvas = mustFind("preview");
   const imageInput = mustFind("imageInput");
   const resetButton = mustFind("resetButton");
   const exportButton = mustFind("exportButton");
-  const controlsRoot = mustFind("controls");
   const curvePreviewRoot = document.getElementById("curvePreviewRoot");
   const status = mustFind("status");
   const error = mustFind("error");
@@ -37,19 +36,14 @@ export async function startApp() {
   const renderer = createLookRenderer(canvas, shaderSources);
   const config = cloneDefaultConfig();
   let curvePreviews = null;
-  const applyConfig = (nextConfig, {syncControls = false} = {}) => {
-    if (syncControls) controls.sync(nextConfig);
+  const applyConfig = (nextConfig) => {
     renderer.setConfig(nextConfig);
     curvePreviews?.render(nextConfig);
   };
-  const graphOwnedControlKeys = [...TONE_MAP_CONTROL_KEYS, ...CHROMA_MAP_CONTROL_KEYS];
-  const controls = buildControls(controlsRoot, config, nextConfig => {
-    applyConfig(nextConfig);
-  }, {excludeKeys: graphOwnedControlKeys});
   curvePreviews = curvePreviewRoot ? createCurvePreviews(curvePreviewRoot, config, {
     onConfigChange: nextConfig => {
       Object.assign(config, nextConfig);
-      applyConfig(config, {syncControls: true});
+      applyConfig(config);
     }
   }) : null;
   const compareControls = bindCompareControls({
@@ -107,8 +101,7 @@ export async function startApp() {
 
   resetButton.addEventListener("click", () => {
     Object.assign(config, cloneDefaultConfig());
-    controls.sync(config);
-    renderer.setConfig(config);
+    applyConfig(config);
     curvePreviews?.render(config);
     setStatus(status, "Reset all controls to Vandal Look defaults.", "neutral");
   });
@@ -125,7 +118,7 @@ export async function startApp() {
     }
   });
 
-  return {renderer, config, controls, compareControls, curvePreviews};
+  return {renderer, config, compareControls, curvePreviews};
 }
 
 function bindCompareControls({canvas, renderer, compareToggle, compareSplit, compareSplitValue}) {

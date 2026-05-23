@@ -128,3 +128,12 @@ export function resetChromaMapConfig(config) {
   }
   return config;
 }
+
+export const TINT_CONTROL_KEYS = Object.freeze(["tintStrength", "tintHue"]);
+
+export function resetTintConfig(config) {
+  for (const key of TINT_CONTROL_KEYS) {
+    config[key] = DEFAULT_CONFIG[key];
+  }
+  return config;
+}

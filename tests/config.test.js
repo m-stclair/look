@@ -4,12 +4,14 @@ import {
   CHROMA_MAP_CONTROL_KEYS,
   CONTROL_GROUPS,
   DEFAULT_CONFIG,
+  TINT_CONTROL_KEYS,
   TONE_MAP_CONTROL_KEYS,
   cloneDefaultConfig,
   groupControlDefinitions,
   normalizeConfig,
   resetChromaMapConfig,
   resetControlGroup,
+  resetTintConfig,
   resetToneMapConfig
 } from "../src/config.js";
 
@@ -201,4 +203,29 @@ test("resetChromaMapConfig restores only chroma map parameters", () => {
   }
   assert.equal(config.exposure, 2);
   assert.equal(config.tintStrength, 0.6);
+});
+
+
+test("tint control keys cover both tint parameters", () => {
+  assert.deepEqual(TINT_CONTROL_KEYS, ["tintStrength", "tintHue"]);
+  for (const key of TINT_CONTROL_KEYS) {
+    assert.ok(Object.hasOwn(DEFAULT_CONFIG, key), `Unknown tint key: ${key}`);
+  }
+});
+
+test("resetTintConfig restores only tint parameters", () => {
+  const config = normalizeConfig({
+    tintStrength: 0.8,
+    tintHue: 220,
+    exposure: 2,
+    chromaGamma: 1.4
+  });
+
+  resetTintConfig(config);
+
+  for (const key of TINT_CONTROL_KEYS) {
+    assert.equal(config[key], DEFAULT_CONFIG[key], `${key} should reset`);
+  }
+  assert.equal(config.exposure, 2);
+  assert.equal(config.chromaGamma, 1.4);
 });
