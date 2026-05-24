@@ -68,7 +68,8 @@ export async function startApp() {
     config,
     applyConfig,
     setStatus: (message, tone) => setStatus(status, message, tone),
-    setError: nextError => setError(error, nextError)
+    setError: nextError => setError(error, nextError),
+    exportCubeLut: options => renderer.exportCubeLut(options)
   });
   const compareControls = bindCompareControls({
     canvas,

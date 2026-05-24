@@ -11,7 +11,6 @@ import {
   serializeLookConfig,
   slugifyLookName
 } from "./look-serialization.js";
-import { downloadCubeLut } from "./cube-lut.js";
 
 const UNSAVED_LOOK_ID = "__unsaved__";
 
@@ -21,6 +20,7 @@ export function createLookController({
   applyConfig,
   setStatus,
   setError,
+  exportCubeLut,
   storage = globalThis.localStorage
 }) {
   if (!elements?.select || !elements?.nameInput) {
@@ -139,10 +139,18 @@ export function createLookController({
     setStatus?.(`Exported look JSON: ${payload.name}.`, "good");
   }
 
-  function exportCube() {
+  async function exportCube() {
     const name = currentName();
-    downloadCubeLut({name, config});
-    setStatus?.(`Exported 33-point CUBE LUT: ${name}.`, "good");
+    try {
+      if (typeof exportCubeLut !== "function") throw new Error("CUBE LUT export is unavailable.");
+      await exportCubeLut({name});
+      setError?.(null);
+      setStatus?.(`Exported 33-point CUBE LUT: ${name}.`, "good");
+    } catch (error) {
+      console.error(error);
+      setError?.(error);
+      setStatus?.("CUBE LUT export failed.", "bad");
+    }
   }
 
   async function importFiles(files) {
@@ -194,7 +202,9 @@ export function createLookController({
   elements.duplicateButton?.addEventListener("click", duplicateCurrent);
   elements.deleteButton?.addEventListener("click", deleteCurrent);
   elements.exportButton?.addEventListener("click", exportCurrent);
-  elements.exportCubeButton?.addEventListener("click", exportCube);
+  elements.exportCubeButton?.addEventListener("click", () => {
+    exportCube();
+  });
   elements.importInput?.addEventListener("change", () => importFiles(elements.importInput.files));
 
   render();

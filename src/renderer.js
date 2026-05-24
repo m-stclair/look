@@ -1,8 +1,23 @@
 import { createWebgl2Context, resizeDrawingBuffer } from "./gl/context.js";
 import { linkProgram } from "./gl/programs.js";
-import { allocateRgbaTexture, createTexture, resolveRenderTextureFormat, uploadImageTexture } from "./gl/textures.js";
+import {
+  allocateRgbaTexture,
+  createTexture,
+  resolveFloatReadbackTextureFormat,
+  resolveRenderTextureFormat,
+  uploadImageTexture,
+  uploadRgbaFloatTexture
+} from "./gl/textures.js";
 import { renderViewComposite, VIEW_COMPOSITE_UNIFORM_NAMES } from "./gl/view-composite-renderer.js";
 import { normalizeConfig } from "./config.js";
+import {
+  createCubeInputPixels,
+  createCubeLutText,
+  cubeTextureDimensions,
+  DEFAULT_LUT_SIZE,
+  downloadCubeLutText,
+  normalizeLutSize
+} from "./cube-lut.js";
 import { effectiveToneCenter } from "./curve-preview.js";
 import { lookTintFromHueDegrees } from "./color-utils.js";
 import {
@@ -136,18 +151,32 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
 
   function renderLookPass() {
     ensureProcessedTarget();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, processedFramebuffer);
-    gl.viewport(0, 0, imageSize.width, imageSize.height);
+    renderLookPassToTarget({
+      inputTexture: sourceTexture,
+      framebuffer: processedFramebuffer,
+      width: imageSize.width,
+      height: imageSize.height
+    });
+  }
+
+  function renderLookPassToTarget({inputTexture, framebuffer, width, height}) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.viewport(0, 0, width, height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(lookProgram);
     gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
+    gl.bindTexture(gl.TEXTURE_2D, inputTexture);
+    setLookUniforms(width, height);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+  }
 
+  function setLookUniforms(width, height) {
     const tintLow = lookTintFromHueDegrees(config.tintLowHue);
     const tintHigh = lookTintFromHueDegrees(config.tintHighHue);
-    gl.uniform2f(lookUniforms.u_resolution, imageSize.width, imageSize.height);
+    gl.uniform2f(lookUniforms.u_resolution, width, height);
     gl.uniform2f(lookUniforms.u_viewport_origin, 0, 0);
     gl.uniform2f(lookUniforms.u_view_center, 0.5, 0.5);
     gl.uniform2f(lookUniforms.u_view_span, 1, 1);
@@ -170,8 +199,6 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_lift, config.lift);
     gl.uniform1f(lookUniforms.u_midtone, config.midtone);
     gl.uniform1f(lookUniforms.u_gain, config.gain);
-
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   function ensureProcessedTarget() {
@@ -238,6 +265,76 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
         resolve(blob);
       }, "image/png");
     });
+  }
+
+  function exportCubeLut({name = "Look", size = DEFAULT_LUT_SIZE} = {}) {
+    const lutSize = normalizeLutSize(size);
+    const readbackPixels = renderCubeLutPixels(lutSize);
+    const text = createCubeLutText(readbackPixels, {size: lutSize, title: name});
+    downloadCubeLutText({name, size: lutSize, text});
+    return text;
+  }
+
+  function renderCubeLutPixels(size) {
+    const lutSize = normalizeLutSize(size);
+    const {width, height} = cubeTextureDimensions(lutSize);
+    assertCanRenderCubeTexture(width, height, lutSize);
+
+    const outputFormat = resolveFloatReadbackTextureFormat(gl);
+    const lutSourceTexture = createTexture(gl);
+    const lutOutputTexture = createTexture(gl);
+    const lutFramebuffer = gl.createFramebuffer();
+    const readbackPixels = new Float32Array(width * height * 4);
+
+    try {
+      gl.activeTexture(gl.TEXTURE0);
+      uploadRgbaFloatTexture(gl, lutSourceTexture, width, height, createCubeInputPixels(lutSize), {filter: gl.NEAREST});
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lutFramebuffer);
+      allocateRgbaTexture(gl, lutOutputTexture, width, height, {filter: gl.NEAREST, pixelFormat: outputFormat});
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lutOutputTexture, 0);
+      const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+      if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        throw new Error(`CUBE LUT render target is incomplete: ${status}`);
+      }
+
+      renderLookPassToTarget({
+        inputTexture: lutSourceTexture,
+        framebuffer: lutFramebuffer,
+        width,
+        height
+      });
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, readbackPixels);
+      assertNoGlError("CUBE LUT readback failed");
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.bindVertexArray(null);
+      gl.deleteTexture(lutSourceTexture);
+      gl.deleteTexture(lutOutputTexture);
+      gl.deleteFramebuffer(lutFramebuffer);
+      if (imageSource) render();
+    }
+
+    return readbackPixels;
+  }
+
+  function assertCanRenderCubeTexture(width, height, size) {
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    const maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+    const maxWidth = Math.min(maxTextureSize, maxViewportDims[0]);
+    const maxHeight = Math.min(maxTextureSize, maxViewportDims[1]);
+    if (width <= maxWidth && height <= maxHeight) return;
+
+    const maxSize = Math.min(maxHeight, Math.floor(Math.sqrt(Math.max(1, maxWidth))));
+    throw new Error(
+      `A ${size}-point CUBE LUT needs a ${width}×${height} shader readback target, but this WebGL context supports up to ${maxWidth}×${maxHeight}. Try ${maxSize}-point or smaller.`
+    );
+  }
+
+  function assertNoGlError(message) {
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) throw new Error(`${message}: WebGL error ${error}`);
   }
 
   function resizeToDisplay({render: shouldRender = true} = {}) {
@@ -336,6 +433,7 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     getCompare,
     render,
     exportPng,
+    exportCubeLut,
     resizeToDisplay,
     panByClientDelta,
     zoomBy,

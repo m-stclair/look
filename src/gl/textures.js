@@ -16,8 +16,12 @@ export function uploadImageTexture(gl, texture, imageSource, {filter = gl.NEARES
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageSource);
 }
 
-export function supportsHalfFloatRenderTargets(gl) {
+export function supportsFloatRenderTargets(gl) {
   return !!gl?.getExtension?.("EXT_color_buffer_float");
+}
+
+export function supportsHalfFloatRenderTargets(gl) {
+  return supportsFloatRenderTargets(gl);
 }
 
 export function resolveRenderTextureFormat(gl, {preferHalfFloat = true} = {}) {
@@ -38,6 +42,36 @@ export function resolveRenderTextureFormat(gl, {preferHalfFloat = true} = {}) {
     halfFloat: false,
     label: "RGBA8"
   };
+}
+
+export function resolveFloatReadbackTextureFormat(gl) {
+  if (!supportsFloatRenderTargets(gl) || !Number.isFinite(gl?.RGBA32F) || !Number.isFinite(gl?.FLOAT)) {
+    throw new Error("Floating-point render target readback is required for shader-based CUBE LUT export.");
+  }
+
+  return {
+    internalFormat: gl.RGBA32F,
+    format: gl.RGBA,
+    type: gl.FLOAT,
+    float: true,
+    label: "RGBA32F"
+  };
+}
+
+export function uploadRgbaFloatTexture(gl, texture, width, height, pixels, {filter = gl.NEAREST} = {}) {
+  configureTexture(gl, texture, {filter});
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA32F,
+    Math.max(1, Math.round(width)),
+    Math.max(1, Math.round(height)),
+    0,
+    gl.RGBA,
+    gl.FLOAT,
+    pixels
+  );
 }
 
 export function allocateRgbaTexture(gl, texture, width, height, {
