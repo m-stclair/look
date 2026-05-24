@@ -12,8 +12,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   chromaFadeSoftness: 1,
   tintLowHue: 248,
   tintHighHue: 68,
+  tintLowStrength: 0,
+  tintHighStrength: 0,
+  tintAxisCenter: 0.5,
   tintStrength: 0,
-  tintAxisCenter: -1,
   lift: 0,
   midtone: 0,
   gain: 0
@@ -93,8 +95,12 @@ export const CONTROL_GROUPS = Object.freeze([
     controls: [
       {key: "tintLowHue", label: "Low Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
       {key: "tintHighHue", label: "High Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
-      {key: "tintStrength", label: "Tint Strength", min: 0, max: 1, step: 0.01},
-      {key: "tintAxisCenter", label: "Crossover", min: -6, max: 0, step: 0.01}
+      {key: "tintLowStrength", label: "Low Strength", min: 0, max: 1, step: 0.01},
+      {key: "tintHighStrength", label: "High Strength", min: 0, max: 1, step: 0.01},
+      {key: "tintAxisCenter", label: "Crossover Luma", min: 0, max: 1, step: 0.01}
+    ],
+    hiddenControls: [
+      {key: "tintStrength", label: "Legacy Tint Strength", min: 0, max: 1, step: 0.01}
     ]
   }
 ]);
@@ -112,7 +118,31 @@ export function cloneDefaultConfig() {
 }
 
 export function normalizeConfig(config = {}) {
-  return {...DEFAULT_CONFIG, ...config};
+  const normalized = {...DEFAULT_CONFIG, ...config};
+  const legacyStrength = Number(config?.tintStrength);
+  const hasLegacyStrength = Number.isFinite(legacyStrength);
+
+  if (!Object.prototype.hasOwnProperty.call(config, "tintLowStrength") && hasLegacyStrength) {
+    normalized.tintLowStrength = legacyStrength;
+  }
+  if (!Object.prototype.hasOwnProperty.call(config, "tintHighStrength") && hasLegacyStrength) {
+    normalized.tintHighStrength = legacyStrength;
+  }
+
+  normalized.tintAxisCenter = normalizeTintAxisCenter(normalized.tintAxisCenter);
+  normalized.tintStrength = (Number(normalized.tintLowStrength) + Number(normalized.tintHighStrength)) / 2;
+  return normalized;
+}
+
+function normalizeTintAxisCenter(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_CONFIG.tintAxisCenter;
+  if (numeric < 0) return clamp01(Math.pow(2, numeric));
+  return clamp01(numeric);
+}
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
 }
 
 export function resetControlGroup(config, groupId) {
@@ -138,7 +168,7 @@ export function resetChromaMapConfig(config) {
   return config;
 }
 
-export const TINT_CONTROL_KEYS = Object.freeze(["tintLowHue", "tintHighHue", "tintStrength", "tintAxisCenter"]);
+export const TINT_CONTROL_KEYS = Object.freeze(["tintLowHue", "tintHighHue", "tintLowStrength", "tintHighStrength", "tintAxisCenter", "tintStrength"]);
 
 export function resetTintConfig(config) {
   for (const key of TINT_CONTROL_KEYS) {

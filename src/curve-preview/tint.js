@@ -6,7 +6,11 @@ import { clamp01, devicePixelRatioSafe, formatCompact, mix } from "./shared.js";
 
 const TINT_ROTATION_DEFAULT = 180;
 const TINT_HANDLE_KEYS = Object.freeze(["tintLowHue", "tintHighHue"]);
-const TINT_LINK_CONTROL_KEY = "tintLinkControl";
+const TINT_HUE_LINK_CONTROL_KEY = "tintLinkControl";
+const TINT_STRENGTH_LINK_CONTROL_KEY = "tintStrengthLinkControl";
+const TINT_CROSSOVER_CONTROL_KEY = "tintAxisCenter";
+const TINT_CROSSOVER_MIN = 0;
+const TINT_CROSSOVER_MAX = 1;
 
 export function drawTintPreview(canvas, config, handleState = {}) {
   const frame = beginFrame(canvas);
@@ -18,6 +22,7 @@ export function drawTintPreview(canvas, config, handleState = {}) {
   const activeKey = typeof handleState.activeTintHandle === "string" ? handleState.activeTintHandle : handleState.activeTintHandle?.key || null;
   const hoverKey = handleState.hoverTintHandle || null;
   const tintLinked = handleState.tintLinked !== false;
+  const tintStrengthLinked = handleState.tintStrengthLinked !== false;
   const normalized = normalizeConfig(config);
 
   drawFrame(frame, {yMax: 1, labels: false});
@@ -35,50 +40,38 @@ export function drawTintPreview(canvas, config, handleState = {}) {
   ctx.fillRect(plot.x, plot.y + plot.h - stripH, plot.w, stripH);
   ctx.restore();
 
-  const strength = clamp01(normalized.tintStrength || 0);
-  const handleY = plot.y + (1 - strength) * plot.h;
-
-  ctx.save();
-  ctx.strokeStyle = frame.accent.trim();
-  ctx.lineWidth = 1 * dpr;
-  ctx.globalAlpha = strength < 0.02 ? 0.16 : 0.28;
-  ctx.setLineDash([4 * dpr, 4 * dpr]);
-  line(ctx, plot.x, handleY, plot.x + plot.w, handleY);
-  ctx.setLineDash([]);
-  ctx.restore();
+  drawTintCrossoverControl(frame, normalized, {
+    active: activeKey === TINT_CROSSOVER_CONTROL_KEY,
+    hover: hoverKey === TINT_CROSSOVER_CONTROL_KEY
+  });
 
   const handles = tintHandles(normalized);
-  for (const handle of handles) {
-    const hx = hueToX(handle.hue, plot);
-    if (strength > 0.02) {
-      ctx.save();
-      ctx.strokeStyle = frame.accent.trim();
-      ctx.lineWidth = 1 * dpr;
-      ctx.globalAlpha = 0.24;
-      ctx.setLineDash([3 * dpr, 3 * dpr]);
-      line(ctx, hx, plot.y + plot.h - stripH, hx, handleY);
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-  }
+  const points = handles.map(handle => ({...handle, ...tintHandlePointFromConfig(frame, normalized, handle.key)}));
+
+  drawTintStrengthGuides(frame, points, stripH);
 
   // Draw low first, high second, so H stays reachable when both hues overlap.
-  for (const handle of handles) {
+  for (const handle of points) {
     drawTintHandle(frame, {
       ...handle,
-      x: hueToX(handle.hue, plot),
-      y: handleY,
       active: activeKey === handle.key,
       hover: hoverKey === handle.key,
-      dormant: strength < 0.02
+      dormant: handle.strength < 0.02
     });
   }
 
-  drawTintLinkControl(frame, normalized, {
+  drawTintHueLinkControl(frame, normalized, {
     linked: tintLinked,
-    active: activeKey === TINT_LINK_CONTROL_KEY,
-    hover: hoverKey === TINT_LINK_CONTROL_KEY,
-    dormant: strength < 0.02
+    active: activeKey === TINT_HUE_LINK_CONTROL_KEY,
+    hover: hoverKey === TINT_HUE_LINK_CONTROL_KEY,
+    dormant: Math.max(normalized.tintLowStrength || 0, normalized.tintHighStrength || 0) < 0.02
+  });
+
+  drawTintStrengthLinkControl(frame, normalized, {
+    linked: tintStrengthLinked,
+    active: activeKey === TINT_STRENGTH_LINK_CONTROL_KEY,
+    hover: hoverKey === TINT_STRENGTH_LINK_CONTROL_KEY,
+    dormant: Math.max(normalized.tintLowStrength || 0, normalized.tintHighStrength || 0) < 0.02
   });
 }
 
@@ -95,7 +88,9 @@ export function createTintControls(canvas, bindings) {
   const state = {
     details: false,
     linked: isApproximatelyOpposed(initialConfig),
-    rotation: hueDeltaDegrees(initialConfig.tintHighHue, initialConfig.tintLowHue) || TINT_ROTATION_DEFAULT
+    strengthLinked: isApproximatelyEqualStrength(initialConfig),
+    rotation: hueDeltaDegrees(initialConfig.tintHighHue, initialConfig.tintLowHue) || TINT_ROTATION_DEFAULT,
+    strengthOffset: tintStrengthOffset(initialConfig)
   };
 
   const actions = document.createElement("div");
@@ -123,7 +118,8 @@ export function createTintControls(canvas, bindings) {
     ["tintHighHue", "H"],
     ["tintLowHue", "L"],
     ["tintRotation", "R"],
-    ["tintStrength", "S"],
+    ["tintHighStrength", "HS"],
+    ["tintLowStrength", "LS"],
     ["tintAxisCenter", "C"]
   ]) {
     const chip = document.createElement("span");
@@ -139,9 +135,10 @@ export function createTintControls(canvas, bindings) {
   const highControl = createDockRange("High Hue", "tintHighHue", 0, 360, 0.01);
   const lowControl = createDockRange("Low Hue", "tintLowHue", 0, 360, 0.01);
   const rotationControl = createDockRange("Rotation", "tintRotation", 0, 360, 0.01);
-  const strengthControl = createDockRange("Strength", "tintStrength", 0, 1, 0.01);
-  const crossoverControl = createDockRange("Crossover", "tintAxisCenter", -6, 0, 0.01);
-  const detailControls = [highControl, lowControl, rotationControl, strengthControl, crossoverControl];
+  const highStrengthControl = createDockRange("High Strength", "tintHighStrength", 0, 1, 0.01);
+  const lowStrengthControl = createDockRange("Low Strength", "tintLowStrength", 0, 1, 0.01);
+  const crossoverControl = createDockRange("Crossover Luma", "tintAxisCenter", TINT_CROSSOVER_MIN, TINT_CROSSOVER_MAX, 0.01);
+  const detailControls = [highControl, lowControl, rotationControl, highStrengthControl, lowStrengthControl, crossoverControl];
 
   const linkRow = document.createElement("div");
   linkRow.className = "tint-link-row";
@@ -151,19 +148,26 @@ export function createTintControls(canvas, bindings) {
   linkButton.className = "tone-map-action tint-link-toggle";
   linkButton.setAttribute("aria-pressed", state.linked ? "true" : "false");
 
+  const strengthLinkButton = document.createElement("button");
+  strengthLinkButton.type = "button";
+  strengthLinkButton.className = "tone-map-action tint-strength-link-toggle";
+  strengthLinkButton.setAttribute("aria-pressed", state.strengthLinked ? "true" : "false");
+
   const snapButton = document.createElement("button");
   snapButton.type = "button";
   snapButton.className = "tone-map-action tint-snap-opposite";
   snapButton.textContent = "Snap 180°";
 
-  linkRow.append(linkButton, snapButton);
+  linkRow.append(linkButton, strengthLinkButton, snapButton);
   for (const control of detailControls) details.append(control.wrapper);
   details.append(linkRow);
   card.append(readouts, details);
 
   resetButton.addEventListener("click", () => {
     state.linked = true;
+    state.strengthLinked = true;
     state.rotation = TINT_ROTATION_DEFAULT;
+    state.strengthOffset = 0;
     const nextConfig = resetTintConfig(normalizeConfig(bindings.getConfig()));
     const patch = Object.fromEntries(TINT_CONTROL_KEYS.map(key => [key, nextConfig[key]]));
     bindings.setConfigValues?.(patch);
@@ -178,10 +182,12 @@ export function createTintControls(canvas, bindings) {
   highControl.input.addEventListener("input", () => setHue("tintHighHue", highControl.input.valueAsNumber));
   lowControl.input.addEventListener("input", () => setHue("tintLowHue", lowControl.input.valueAsNumber));
   rotationControl.input.addEventListener("input", () => setRotation(rotationControl.input.valueAsNumber));
-  strengthControl.input.addEventListener("input", () => bindings.setConfigValue(strengthControl.key, strengthControl.input.valueAsNumber));
+  highStrengthControl.input.addEventListener("input", () => setStrength("tintHighStrength", highStrengthControl.input.valueAsNumber));
+  lowStrengthControl.input.addEventListener("input", () => setStrength("tintLowStrength", lowStrengthControl.input.valueAsNumber));
   crossoverControl.input.addEventListener("input", () => bindings.setConfigValue(crossoverControl.key, crossoverControl.input.valueAsNumber));
 
   linkButton.addEventListener("click", toggleLinked);
+  strengthLinkButton.addEventListener("click", toggleStrengthLinked);
 
   snapButton.addEventListener("click", () => {
     const config = normalizeConfig(bindings.getConfig());
@@ -198,13 +204,22 @@ export function createTintControls(canvas, bindings) {
   return {
     sync,
     setTintHandleValue(key, hue, strength) {
-      setHue(key, hue, {tintStrength: strength});
+      setHue(key, hue, strengthPatchFor(strengthKeyForHandle(key), strength));
+    },
+    setTintCrossoverValue(value) {
+      bindings.setConfigValue?.(TINT_CROSSOVER_CONTROL_KEY, value);
     },
     isLinked() {
       return state.linked;
     },
+    isStrengthLinked() {
+      return state.strengthLinked;
+    },
     toggleLinked() {
       toggleLinked();
+    },
+    toggleStrengthLinked() {
+      toggleStrengthLinked();
     },
     destroy() {
       actions.remove();
@@ -216,6 +231,13 @@ export function createTintControls(canvas, bindings) {
   function toggleLinked() {
     state.linked = !state.linked;
     state.rotation = currentRotation();
+    sync(bindings.getConfig());
+    bindings.requestRender?.();
+  }
+
+  function toggleStrengthLinked() {
+    state.strengthLinked = !state.strengthLinked;
+    state.strengthOffset = currentStrengthOffset();
     sync(bindings.getConfig());
     bindings.requestRender?.();
   }
@@ -233,6 +255,23 @@ export function createTintControls(canvas, bindings) {
     bindings.setConfigValues?.(patch);
   }
 
+  function setStrength(key, value) {
+    bindings.setConfigValues?.(strengthPatchFor(key, value));
+  }
+
+  function strengthPatchFor(key, value) {
+    const strength = clamp01(value);
+    const patch = {[key]: strength};
+    if (state.strengthLinked) {
+      if (key === "tintHighStrength") {
+        patch.tintLowStrength = clamp01(strength - state.strengthOffset);
+      } else {
+        patch.tintHighStrength = clamp01(strength + state.strengthOffset);
+      }
+    }
+    return patch;
+  }
+
   function setRotation(value) {
     state.rotation = normalizeHueDegrees(value);
     const config = normalizeConfig(bindings.getConfig());
@@ -246,6 +285,10 @@ export function createTintControls(canvas, bindings) {
     return hueDeltaDegrees(config.tintHighHue, config.tintLowHue);
   }
 
+  function currentStrengthOffset() {
+    return tintStrengthOffset(normalizeConfig(bindings.getConfig()));
+  }
+
   function syncExpansion() {
     card.classList.toggle("is-details-open", state.details);
     detailsButton.setAttribute("aria-expanded", state.details ? "true" : "false");
@@ -255,8 +298,9 @@ export function createTintControls(canvas, bindings) {
   function sync(nextConfig) {
     const config = normalizeConfig(nextConfig);
     state.rotation = currentRotationFromConfig(config);
+    if (state.strengthLinked) state.strengthOffset = tintStrengthOffset(config);
 
-    for (const control of [highControl, lowControl, strengthControl, crossoverControl]) {
+    for (const control of [highControl, lowControl, highStrengthControl, lowStrengthControl, crossoverControl]) {
       control.input.value = String(config[control.key]);
       control.value.textContent = formatControlValue(control.key, config[control.key]);
     }
@@ -266,16 +310,21 @@ export function createTintControls(canvas, bindings) {
     setReadout("tintHighHue", `H ${Math.round(config.tintHighHue)}°`);
     setReadout("tintLowHue", `L ${Math.round(config.tintLowHue)}°`);
     setReadout("tintRotation", `R ${Math.round(state.rotation)}°`);
-    setReadout("tintStrength", `S ${formatCompact(config.tintStrength)}`);
+    setReadout("tintHighStrength", `HS ${formatCompact(config.tintHighStrength)}`);
+    setReadout("tintLowStrength", `LS ${formatCompact(config.tintLowStrength)}`);
     setReadout("tintAxisCenter", `C ${formatCompact(config.tintAxisCenter)}`);
     syncLinkState();
   }
 
   function syncLinkState() {
-    linkButton.textContent = state.linked ? "Linked" : "Free";
+    linkButton.textContent = state.linked ? "Hue Linked" : "Hue Free";
     linkButton.setAttribute("aria-pressed", state.linked ? "true" : "false");
     linkButton.setAttribute("aria-label", state.linked ? "Unlink low and high tint hues" : "Link low and high tint hues");
+    strengthLinkButton.textContent = state.strengthLinked ? "Strength Linked" : "Strength Free";
+    strengthLinkButton.setAttribute("aria-pressed", state.strengthLinked ? "true" : "false");
+    strengthLinkButton.setAttribute("aria-label", state.strengthLinked ? "Unlink low and high tint strengths" : "Link low and high tint strengths");
     card.classList.toggle("is-tint-linked", state.linked);
+    card.classList.toggle("is-tint-strength-linked", state.strengthLinked);
   }
 
   function setReadout(key, text) {
@@ -287,32 +336,30 @@ export function createTintControls(canvas, bindings) {
 export function bindTintHandles(canvas, bindings) {
   let drag = null;
 
-  function tintHandlePoint(frame, key) {
-    const plot = plotRect(frame);
-    const config = normalizeConfig(bindings.getConfig());
-    const hue = key === "tintLowHue" ? config.tintLowHue : config.tintHighHue;
-    const strength = clamp01(config.tintStrength || 0);
-    return {
-      x: hueToX(hue, plot),
-      y: plot.y + (1 - strength) * plot.h
-    };
-  }
-
-  function nearestHandle(clientX, clientY) {
+  function nearestDragTarget(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const frame = frameFromClientRect(canvas, rect);
     if (!frame) return null;
     const dpr = devicePixelRatioSafe();
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
+    const config = normalizeConfig(bindings.getConfig());
     let nearest = null;
+
     for (const key of TINT_HANDLE_KEYS) {
-      const pt = tintHandlePoint(frame, key);
+      const pt = tintHandlePointFromConfig(frame, config, key);
       const distance = Math.hypot(localX - pt.x, localY - pt.y);
       if (distance <= 14 * dpr && (!nearest || distance < nearest.distance)) {
         nearest = {key, distance};
       }
     }
+
+    const crossover = tintCrossoverPoint(frame, config);
+    const crossoverDistance = Math.hypot(localX - crossover.x, localY - crossover.y);
+    if (crossoverDistance <= 13 * dpr && (!nearest || crossoverDistance < nearest.distance)) {
+      nearest = {key: TINT_CROSSOVER_CONTROL_KEY, distance: crossoverDistance};
+    }
+
     return nearest?.key || null;
   }
 
@@ -324,13 +371,24 @@ export function bindTintHandles(canvas, bindings) {
     const plot = plotRect(frame);
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
+
+    if (key === TINT_CROSSOVER_CONTROL_KEY) {
+      const crossover = crossoverValueFromX(localX, plot);
+      if (typeof bindings.setTintCrossoverValue === "function") {
+        bindings.setTintCrossoverValue(crossover);
+      } else {
+        bindings.setConfigValues({[TINT_CROSSOVER_CONTROL_KEY]: crossover});
+      }
+      return;
+    }
+
     const hueNorm = clamp01((localX - plot.x) / Math.max(plot.w, 1));
     const strengthNorm = clamp01(1 - (localY - plot.y) / Math.max(plot.h, 1));
     if (typeof bindings.setTintHandleValue === "function") {
       bindings.setTintHandleValue(key, hueNorm * 360, strengthNorm);
       return;
     }
-    bindings.setConfigValues({[key]: hueNorm * 360, tintStrength: strengthNorm});
+    bindings.setConfigValues({[key]: hueNorm * 360, [strengthKeyForHandle(key)]: strengthNorm});
   }
 
   function onPointerDown(event) {
@@ -338,13 +396,14 @@ export function bindTintHandles(canvas, bindings) {
     const linkKey = nearestLinkControl(event.clientX, event.clientY);
     if (linkKey) {
       event.preventDefault();
-      bindings.setActiveHandle({key: TINT_LINK_CONTROL_KEY});
-      bindings.toggleTintLink?.();
+      bindings.setActiveHandle({key: linkKey});
+      if (linkKey === TINT_STRENGTH_LINK_CONTROL_KEY) bindings.toggleTintStrengthLink?.();
+      else bindings.toggleTintLink?.();
       bindings.setActiveHandle(null);
-      bindings.setHoverKey(TINT_LINK_CONTROL_KEY);
+      bindings.setHoverKey(linkKey);
       return;
     }
-    const key = nearestHandle(event.clientX, event.clientY);
+    const key = nearestDragTarget(event.clientX, event.clientY);
     if (!key) return;
     event.preventDefault();
     drag = {pointerId: event.pointerId, key};
@@ -360,9 +419,8 @@ export function bindTintHandles(canvas, bindings) {
       updateConfigFromPointer(event.clientX, event.clientY, drag.key);
       return;
     }
-    const key = nearestLinkControl(event.clientX, event.clientY) || nearestHandle(event.clientX, event.clientY);
-    canvas.classList.toggle("is-over-tint-handle", !!key);
-    canvas.classList.toggle("is-over-tint-link", key === TINT_LINK_CONTROL_KEY);
+    const key = nearestLinkControl(event.clientX, event.clientY) || nearestDragTarget(event.clientX, event.clientY);
+    applyHoverClasses(key);
     bindings.setHoverKey(key);
   }
 
@@ -371,15 +429,14 @@ export function bindTintHandles(canvas, bindings) {
     drag = null;
     canvas.classList.remove("is-dragging-tint-handle");
     bindings.setActiveHandle(null);
-    const key = nearestLinkControl(event.clientX, event.clientY) || nearestHandle(event.clientX, event.clientY);
-    canvas.classList.toggle("is-over-tint-handle", !!key);
-    canvas.classList.toggle("is-over-tint-link", key === TINT_LINK_CONTROL_KEY);
+    const key = nearestLinkControl(event.clientX, event.clientY) || nearestDragTarget(event.clientX, event.clientY);
+    applyHoverClasses(key);
     bindings.setHoverKey(key);
   }
 
   function onPointerLeave() {
     if (!drag) {
-      canvas.classList.remove("is-over-tint-handle", "is-over-tint-link");
+      canvas.classList.remove("is-over-tint-handle", "is-over-tint-link", "is-over-tint-crossover");
       bindings.setHoverKey(null);
     }
   }
@@ -405,19 +462,68 @@ export function bindTintHandles(canvas, bindings) {
     const dpr = devicePixelRatioSafe();
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
-    const box = tintLinkControlBox(frame, normalizeConfig(bindings.getConfig()));
+    const config = normalizeConfig(bindings.getConfig());
+    const candidates = [
+      {key: TINT_HUE_LINK_CONTROL_KEY, box: tintHueLinkControlBox(frame, config)},
+      {key: TINT_STRENGTH_LINK_CONTROL_KEY, box: tintStrengthLinkControlBox(frame, config)}
+    ];
     const pad = 4 * dpr;
-    return localX >= box.x - pad && localX <= box.x + box.w + pad && localY >= box.y - pad && localY <= box.y + box.h + pad
-      ? TINT_LINK_CONTROL_KEY
-      : null;
+    for (const candidate of candidates) {
+      const {box} = candidate;
+      if (localX >= box.x - pad && localX <= box.x + box.w + pad && localY >= box.y - pad && localY <= box.y + box.h + pad) {
+        return candidate.key;
+      }
+    }
+    return null;
+  }
+
+  function applyHoverClasses(key) {
+    canvas.classList.toggle("is-over-tint-handle", TINT_HANDLE_KEYS.includes(key));
+    canvas.classList.toggle("is-over-tint-link", key === TINT_HUE_LINK_CONTROL_KEY || key === TINT_STRENGTH_LINK_CONTROL_KEY);
+    canvas.classList.toggle("is-over-tint-crossover", key === TINT_CROSSOVER_CONTROL_KEY);
   }
 }
 
 function tintHandles(config) {
   return [
-    {key: "tintLowHue", label: "L", hue: config.tintLowHue},
-    {key: "tintHighHue", label: "H", hue: config.tintHighHue}
+    {key: "tintLowHue", label: "L", hue: config.tintLowHue, strength: clamp01(config.tintLowStrength || 0)},
+    {key: "tintHighHue", label: "H", hue: config.tintHighHue, strength: clamp01(config.tintHighStrength || 0)}
   ];
+}
+
+function tintHandlePointFromConfig(frame, config, key) {
+  const plot = plotRect(frame);
+  const hue = key === "tintLowHue" ? config.tintLowHue : config.tintHighHue;
+  const strength = key === "tintLowHue" ? clamp01(config.tintLowStrength || 0) : clamp01(config.tintHighStrength || 0);
+  return {
+    x: hueToX(hue, plot),
+    y: plot.y + (1 - strength) * plot.h,
+    strength
+  };
+}
+
+function drawTintStrengthGuides(frame, points, stripH) {
+  const {ctx} = frame;
+  const dpr = devicePixelRatioSafe();
+  const plot = plotRect(frame);
+  const activePoints = points.filter(point => point.strength > 0.02);
+
+  ctx.save();
+  ctx.strokeStyle = frame.accent.trim();
+  ctx.lineWidth = 1 * dpr;
+  ctx.setLineDash([4 * dpr, 4 * dpr]);
+  for (const point of activePoints) {
+    ctx.globalAlpha = 0.22;
+    line(ctx, plot.x, point.y, plot.x + plot.w, point.y);
+    ctx.globalAlpha = 0.24;
+    line(ctx, point.x, plot.y + plot.h - stripH, point.x, point.y);
+  }
+  ctx.setLineDash([]);
+  if (points.length === 2) {
+    ctx.globalAlpha = 0.3;
+    line(ctx, points[0].x, points[0].y, points[1].x, points[1].y);
+  }
+  ctx.restore();
 }
 
 function drawTintHandle(frame, {label, hue, x, y, active, hover, dormant}) {
@@ -444,22 +550,86 @@ function drawTintHandle(frame, {label, hue, x, y, active, hover, dormant}) {
   ctx.restore();
 }
 
-function drawTintLinkControl(frame, config, {linked, active, hover, dormant}) {
+function drawTintCrossoverControl(frame, config, {active, hover}) {
   const {ctx} = frame;
   const dpr = devicePixelRatioSafe();
-  const box = tintLinkControlBox(frame, config);
   const plot = plotRect(frame);
-  const highX = hueToX(config.tintHighHue, plot);
-  const highY = plot.y + (1 - clamp01(config.tintStrength || 0)) * plot.h;
+  const point = tintCrossoverPoint(frame, config);
+  const radius = 6 * dpr;
+  const alpha = active ? 1 : hover ? 0.9 : 0.72;
+
+  ctx.save();
+  ctx.strokeStyle = frame.accent.trim();
+  ctx.lineWidth = 1 * dpr;
+  ctx.globalAlpha = 0.18;
+  ctx.setLineDash([3 * dpr, 4 * dpr]);
+  line(ctx, point.x, plot.y, point.x, plot.y + plot.h);
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.3;
+  line(ctx, plot.x, point.y, plot.x + plot.w, point.y);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(point.x, point.y);
+  ctx.beginPath();
+  ctx.moveTo(0, -radius);
+  ctx.lineTo(radius, 0);
+  ctx.lineTo(0, radius);
+  ctx.lineTo(-radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(18,23,30,0.88)";
+  ctx.globalAlpha = alpha;
+  ctx.fill();
+  ctx.strokeStyle = active ? "rgba(255,255,255,0.92)" : "rgba(184,196,214,0.62)";
+  ctx.lineWidth = (active ? 1.7 : 1.1) * dpr;
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.font = `${7.5 * dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("C", 0, 0.2 * dpr);
+  ctx.restore();
+}
+
+function drawTintHueLinkControl(frame, config, {linked, active, hover, dormant}) {
+  const {ctx} = frame;
+  const dpr = devicePixelRatioSafe();
+  const box = tintHueLinkControlBox(frame, config);
+  const highPoint = tintHandlePointFromConfig(frame, config, "tintHighHue");
   const alpha = active ? 1 : hover ? 0.95 : dormant ? 0.58 : 0.82;
 
   ctx.save();
   ctx.globalAlpha = Math.min(alpha, 0.7);
   ctx.strokeStyle = frame.accent.trim();
   ctx.lineWidth = 1 * dpr;
-  line(ctx, highX + Math.sign(box.x - highX) * 7 * dpr, highY, box.x + box.w / 2, box.y + box.h / 2);
+  line(ctx, highPoint.x + Math.sign(box.x - highPoint.x) * 7 * dpr, highPoint.y, box.x + box.w / 2, box.y + box.h / 2);
   ctx.restore();
 
+  drawLockBox(ctx, box, {linked, active, alpha, dpr});
+}
+
+function drawTintStrengthLinkControl(frame, config, {linked, active, hover, dormant}) {
+  const {ctx} = frame;
+  const dpr = devicePixelRatioSafe();
+  const box = tintStrengthLinkControlBox(frame, config);
+  const lowPoint = tintHandlePointFromConfig(frame, config, "tintLowHue");
+  const highPoint = tintHandlePointFromConfig(frame, config, "tintHighHue");
+  const alpha = active ? 1 : hover ? 0.95 : dormant ? 0.58 : 0.82;
+  const centerX = box.x + box.w / 2;
+  const centerY = box.y + box.h / 2;
+
+  ctx.save();
+  ctx.globalAlpha = Math.min(alpha, 0.55);
+  ctx.strokeStyle = frame.accent.trim();
+  ctx.lineWidth = 1 * dpr;
+  line(ctx, centerX, centerY, centerX - 7 * dpr, lowPoint.y);
+  line(ctx, centerX, centerY, centerX - 7 * dpr, highPoint.y);
+  ctx.restore();
+
+  drawLockBox(ctx, box, {linked, active, alpha, dpr});
+}
+
+function drawLockBox(ctx, box, {linked, active, alpha, dpr}) {
   ctx.save();
   roundedRectPath(ctx, box.x, box.y, box.w, box.h, 4 * dpr);
   ctx.fillStyle = linked ? "rgba(143,180,223,0.34)" : "rgba(18,23,30,0.88)";
@@ -472,19 +642,33 @@ function drawTintLinkControl(frame, config, {linked, active, hover, dormant}) {
   ctx.restore();
 }
 
-function tintLinkControlBox(frame, config) {
+function tintHueLinkControlBox(frame, config) {
   const dpr = devicePixelRatioSafe();
   const plot = plotRect(frame);
-  const x = hueToX(config.tintHighHue, plot);
-  const y = plot.y + (1 - clamp01(config.tintStrength || 0)) * plot.h;
+  const point = tintHandlePointFromConfig(frame, config, "tintHighHue");
   const size = 15 * dpr;
   const gap = 9 * dpr;
-  const rightX = x + gap;
-  const leftX = x - gap - size;
+  const rightX = point.x + gap;
+  const leftX = point.x - gap - size;
   const useRight = rightX + size <= plot.x + plot.w + 1 * dpr;
   return {
     x: useRight ? rightX : Math.max(plot.x, leftX),
-    y: Math.max(plot.y, Math.min(plot.y + plot.h - size, y - size / 2)),
+    y: Math.max(plot.y, Math.min(plot.y + plot.h - size, point.y - size / 2)),
+    w: size,
+    h: size
+  };
+}
+
+function tintStrengthLinkControlBox(frame, config) {
+  const dpr = devicePixelRatioSafe();
+  const plot = plotRect(frame);
+  const lowPoint = tintHandlePointFromConfig(frame, config, "tintLowHue");
+  const highPoint = tintHandlePointFromConfig(frame, config, "tintHighHue");
+  const size = 15 * dpr;
+  const y = (lowPoint.y + highPoint.y) / 2 - size / 2;
+  return {
+    x: plot.x + plot.w - size - 3 * dpr,
+    y: Math.max(plot.y, Math.min(plot.y + plot.h - size, y)),
     w: size,
     h: size
   };
@@ -542,12 +726,41 @@ function hueToX(hue, plot) {
   return plot.x + hueNorm * plot.w;
 }
 
+function tintCrossoverPoint(frame, config) {
+  const plot = plotRect(frame);
+  const dpr = devicePixelRatioSafe();
+  return {
+    x: plot.x + crossoverUnitFromValue(config.tintAxisCenter) * plot.w,
+    y: plot.y + 8 * dpr
+  };
+}
+
+function crossoverUnitFromValue(value) {
+  return clamp01(value);
+}
+
+function crossoverValueFromX(x, plot) {
+  return clamp01((x - plot.x) / Math.max(plot.w, 1));
+}
+
 function currentRotationFromConfig(config) {
   return hueDeltaDegrees(config.tintHighHue, config.tintLowHue);
 }
 
 function isApproximatelyOpposed(config) {
   return Math.abs(currentRotationFromConfig(config) - TINT_ROTATION_DEFAULT) < 0.01;
+}
+
+function tintStrengthOffset(config) {
+  return clamp01(config.tintHighStrength || 0) - clamp01(config.tintLowStrength || 0);
+}
+
+function isApproximatelyEqualStrength(config) {
+  return Math.abs(tintStrengthOffset(config)) < 0.001;
+}
+
+function strengthKeyForHandle(key) {
+  return key === "tintLowHue" ? "tintLowStrength" : "tintHighStrength";
 }
 
 function formatControlValue(key, value) {

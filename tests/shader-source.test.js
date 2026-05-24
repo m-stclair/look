@@ -22,7 +22,8 @@ const requiredUniforms = [
   "u_chroma_fade_softness",
   "u_tint_low",
   "u_tint_high",
-  "u_tint_strength",
+  "u_tint_low_strength",
+  "u_tint_high_strength",
   "u_tint_center",
   "u_curve_strength"
 ];
@@ -72,8 +73,11 @@ test("look shader applies tint as luma-neutral RGB dye scaled against tint headr
   assert.match(source, /vec3\s+applyLumaNeutralTint\s*\(/);
   assert.match(source, /float\s+tint_low_weight\s*=\s*max\(-tint_side,\s*0\.0\)/);
   assert.match(source, /float\s+tint_high_weight\s*=\s*max\(tint_side,\s*0\.0\)/);
+  assert.match(source, /safeLog2\(clamp\(u_tint_center,\s*0\.0,\s*1\.0\)\)/);
   assert.match(source, /lumaNeutralDye\(u_tint_low\)/);
   assert.match(source, /lumaNeutralDye\(u_tint_high\)/);
+  assert.match(source, /u_tint_low_strength/);
+  assert.match(source, /u_tint_high_strength/);
   assert.match(source, /applyLumaNeutralTint\(rgb_base,\s*tint_vec\)/);
   assert.doesNotMatch(source, /vec3\s+tint_axis\s*=/);
   assert.doesNotMatch(source, /oklchToSrgb\(lch_out\)\s*\+\s*tint_vec/);

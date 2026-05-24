@@ -23,7 +23,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       chromaGamma: 0.94,
       tintHighHue: 42,
       tintLowHue: 222,
-      tintStrength: 0.18
+      tintLowStrength: 0.18,
+      tintHighStrength: 0.18
     }
   }),
   createLook({
@@ -42,7 +43,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       chromaGamma: 1.08,
       tintHighHue: 212,
       tintLowHue: 32,
-      tintStrength: 0.14,
+      tintLowStrength: 0.14,
+      tintHighStrength: 0.14,
       chromaFadeStrength: 0.72,
       chromaFadeRegion: 0,
       chromaFadeCenter: 0.42,
@@ -67,7 +69,8 @@ export const BUILT_IN_LOOKS = Object.freeze([
       chromaFadeSoftness: 1,
       tintHighHue: 68,
       tintLowHue: 248,
-      tintStrength: 0.05
+      tintLowStrength: 0.05,
+      tintHighStrength: 0.05
     }
   })
 ]);

@@ -79,7 +79,7 @@ test("tint axis center is independent from the tone pivot", () => {
     tintStrength: 0.6,
     tintLowHue: 248,
     tintHighHue: 68,
-    tintAxisCenter: -1,
+    tintAxisCenter: 0.5,
     curveStrength: 0
   };
 
@@ -91,8 +91,8 @@ test("tint axis center is independent from the tone pivot", () => {
 
 test("tint axis center controls the bipolar tint crossover", () => {
   const input = [0.25, 0.25, 0.25];
-  const shadowsCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: -3});
-  const midtonesCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: -1});
+  const shadowsCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: 0.125});
+  const midtonesCentered = applyLookToSrgb(input, {tintStrength: 0.6, tintLowHue: 248, tintHighHue: 68, tintAxisCenter: 0.5});
 
   assert.ok(
     shadowsCentered.some((channel, index) => Math.abs(channel - midtonesCentered[index]) > 1e-4),
@@ -102,14 +102,14 @@ test("tint axis center controls the bipolar tint crossover", () => {
 
 
 test("highlight tint uses its own luma-neutral RGB dye", () => {
-  // Neutral sRGB value whose OKLab L is 0.5, so tintAxisCenter -2 gives tintSide +1.
+  // Neutral sRGB value whose OKLab L is 0.5, so tintAxisCenter 0.25 gives tintSide +1.
   const input = [0.3885728590463344, 0.3885728590463344, 0.3885728590463344];
   const strength = 0.05;
   const config = {
     tintStrength: strength,
     tintLowHue: 240,
     tintHighHue: 60,
-    tintAxisCenter: -2,
+    tintAxisCenter: 0.25,
     curveStrength: 0
   };
 
@@ -125,13 +125,32 @@ test("highlight tint uses its own luma-neutral RGB dye", () => {
 });
 
 
+test("low and high tint strengths are independent shader weights", () => {
+  // Neutral sRGB value whose OKLab L is 0.5, so tintAxisCenter 0.25 gives tintSide +1.
+  const input = [0.3885728590463344, 0.3885728590463344, 0.3885728590463344];
+  const base = {
+    tintLowHue: 240,
+    tintHighHue: 60,
+    tintAxisCenter: 0.25,
+    curveStrength: 0
+  };
+
+  const neutral = applyLookToSrgb(input, {...base, tintLowStrength: 0, tintHighStrength: 0});
+  const lowOnly = applyLookToSrgb(input, {...base, tintLowStrength: 0.05, tintHighStrength: 0});
+  const highOnly = applyLookToSrgb(input, {...base, tintLowStrength: 0, tintHighStrength: 0.05});
+
+  lowOnly.forEach((channel, index) => assertClose(channel, neutral[index], 1e-9));
+  assert.ok(highOnly.some((channel, index) => Math.abs(channel - neutral[index]) > 1e-4));
+});
+
+
 
 
 test("entering the tint path does not refit existing high-chroma output", () => {
   const config = {
     chromaExposure: 1,
     curveStrength: 0,
-    tintAxisCenter: -2,
+    tintAxisCenter: 0.25,
     tintLowHue: 240,
     tintHighHue: 60
   };
@@ -159,7 +178,7 @@ test("cubeTitle strips characters that break quoted titles", () => {
 test("low and high tint hues are independent dye handles", () => {
   const lowInput = [0.08, 0.08, 0.08];
   const highInput = [0.8, 0.8, 0.8];
-  const base = {tintStrength: 0.05, tintAxisCenter: -1, tintLowHue: 240, tintHighHue: 60, curveStrength: 0};
+  const base = {tintStrength: 0.05, tintAxisCenter: 0.5, tintLowHue: 240, tintHighHue: 60, curveStrength: 0};
 
   const lowA = applyLookToSrgb(lowInput, base);
   const lowB = applyLookToSrgb(lowInput, {...base, tintLowHue: 120});

@@ -32,8 +32,10 @@ const expectedRanges = new Map([
   ["chromaFadeSoftness", {min: 0.02, max: 1, step: 0.01}],
   ["tintLowHue", {min: 0, max: 360, step: 0.01}],
   ["tintHighHue", {min: 0, max: 360, step: 0.01}],
-  ["tintStrength", {min: 0, max: 1, step: 0.01}],
-  ["tintAxisCenter", {min: -6, max: 0, step: 0.01}]
+  ["tintLowStrength", {min: 0, max: 1, step: 0.01}],
+  ["tintHighStrength", {min: 0, max: 1, step: 0.01}],
+  ["tintAxisCenter", {min: 0, max: 1, step: 0.01}],
+  ["tintStrength", {min: 0, max: 1, step: 0.01}]
 ]);
 
 test("cloneDefaultConfig returns a mutable copy", () => {
@@ -105,6 +107,14 @@ test("normalizeConfig fills missing values from defaults", () => {
   assert.equal(normalizeConfig({exposure: 2}).tonePivotNudge, DEFAULT_CONFIG.tonePivotNudge);
   assert.equal(normalizeConfig({exposure: 2}).exposure, 2);
   assert.equal(normalizeConfig({gamma: 1.5}).gamma, 1.5);
+});
+
+
+
+test("normalizeConfig migrates legacy tint crossover stops to luma", () => {
+  assert.equal(normalizeConfig({tintAxisCenter: -1}).tintAxisCenter, 0.5);
+  assert.equal(normalizeConfig({tintAxisCenter: -3}).tintAxisCenter, 0.125);
+  assert.equal(normalizeConfig({tintAxisCenter: 0.25}).tintAxisCenter, 0.25);
 });
 
 test("resetControlGroup restores only the selected group", () => {
@@ -212,7 +222,7 @@ test("resetChromaMapConfig restores only chroma map parameters", () => {
 
 
 test("tint control keys cover tint parameters", () => {
-  assert.deepEqual(TINT_CONTROL_KEYS, ["tintLowHue", "tintHighHue", "tintStrength", "tintAxisCenter"]);
+  assert.deepEqual(TINT_CONTROL_KEYS, ["tintLowHue", "tintHighHue", "tintLowStrength", "tintHighStrength", "tintAxisCenter", "tintStrength"]);
   for (const key of TINT_CONTROL_KEYS) {
     assert.ok(Object.hasOwn(DEFAULT_CONFIG, key), `Unknown tint key: ${key}`);
   }
@@ -223,7 +233,7 @@ test("resetTintConfig restores only tint parameters", () => {
     tintStrength: 0.8,
     tintLowHue: 220,
     tintHighHue: 40,
-    tintAxisCenter: -3,
+    tintAxisCenter: 0.125,
     exposure: 2,
     chromaGamma: 1.4
   });

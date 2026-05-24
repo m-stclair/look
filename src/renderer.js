@@ -35,7 +35,8 @@ const LOOK_UNIFORM_NAMES = Object.freeze([
   "u_curve_strength",
   "u_tint_low",
   "u_tint_high",
-  "u_tint_strength",
+  "u_tint_low_strength",
+  "u_tint_high_strength",
   "u_tint_center",
   "u_lift",
   "u_midtone",
@@ -162,7 +163,8 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_curve_strength, config.curveStrength);
     gl.uniform3f(lookUniforms.u_tint_low, tintLow[0], tintLow[1], tintLow[2]);
     gl.uniform3f(lookUniforms.u_tint_high, tintHigh[0], tintHigh[1], tintHigh[2]);
-    gl.uniform1f(lookUniforms.u_tint_strength, config.tintStrength);
+    gl.uniform1f(lookUniforms.u_tint_low_strength, config.tintLowStrength);
+    gl.uniform1f(lookUniforms.u_tint_high_strength, config.tintHighStrength);
     gl.uniform1f(lookUniforms.u_tint_center, config.tintAxisCenter);
     gl.uniform1f(lookUniforms.u_lift, config.lift);
     gl.uniform1f(lookUniforms.u_midtone, config.midtone);

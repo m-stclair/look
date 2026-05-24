@@ -1354,7 +1354,7 @@ input[type="number"]:hover { border-color: var(--line-strong); }
 }
 
 .tint-map-readouts {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .tint-link-row {
@@ -1364,7 +1364,8 @@ input[type="number"]:hover { border-color: var(--line-strong); }
   padding-top: 2px;
 }
 
-.tint-link-toggle[aria-pressed="true"] {
+.tint-link-toggle[aria-pressed="true"],
+.tint-strength-link-toggle[aria-pressed="true"] {
   border-color: var(--accent);
   color: var(--text);
 }
@@ -1376,6 +1377,10 @@ input[type="number"]:hover { border-color: var(--line-strong); }
 
 .tone-map-card canvas.is-over-tint-link {
   cursor: pointer;
+}
+
+.tone-map-card canvas.is-over-tint-crossover {
+  cursor: ew-resize;
 }
 
 @media (max-width: 560px) {

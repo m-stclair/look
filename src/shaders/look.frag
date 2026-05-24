@@ -20,7 +20,8 @@ uniform float u_tone_center;
 uniform float u_curve_strength;
 uniform vec3 u_tint_low;
 uniform vec3 u_tint_high;
-uniform float u_tint_strength;
+uniform float u_tint_low_strength;
+uniform float u_tint_high_strength;
 uniform float u_tint_center;
 uniform float u_lift;
 uniform float u_midtone;
@@ -196,18 +197,19 @@ vec3 applyLook(vec3 srgb) {
         ab_base = chroma_base * normalize(ab);
     }
 
-    float tint_side = clamp(logL - u_tint_center, -2.0, 2.0);
+    float tint_center = safeLog2(clamp(u_tint_center, 0.0, 1.0));
+    float tint_side = clamp(logL - tint_center, -2.0, 2.0);
     float tint_low_weight = max(-tint_side, 0.0);
     float tint_high_weight = max(tint_side, 0.0);
     vec3 tint_low_dye = lumaNeutralDye(u_tint_low);
     vec3 tint_high_dye = lumaNeutralDye(u_tint_high);
-    vec3 tint_vec = (tint_low_dye * tint_low_weight + tint_high_dye * tint_high_weight) * u_tint_strength * tintRgbScale;
+    vec3 tint_vec = (tint_low_dye * tint_low_weight * u_tint_low_strength + tint_high_dye * tint_high_weight * u_tint_high_strength) * tintRgbScale;
 
     float chroma_out = length(ab_base);
     float hue_out = atan(ab_base.y, ab_base.x);
     vec3 lch_out = vec3(tone, chroma_out, hue_out);
     vec3 rgb_base = oklchToSrgb(lch_out);
-    if (u_tint_strength <= 0.0) return rgb_base;
+    if (u_tint_low_strength <= 0.0 && u_tint_high_strength <= 0.0) return rgb_base;
     return applyLumaNeutralTint(rgb_base, tint_vec);
 }
 

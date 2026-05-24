@@ -28,7 +28,7 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
 
   const logL = safeLog2(luma);
   const toneCenter = effectiveToneCenter(config);
-  const tintCenter = config.tintAxisCenter;
+  const tintCenter = safeLog2(clamp(config.tintAxisCenter, 0, 1));
   const pivot = Math.pow(2, toneCenter);
   const toneSlope = toneSlopeFromControls(config.curveStrength, config.toneShoulder);
   const toneBase = pivotedLogitCurve(luma, pivot, toneSlope);
@@ -48,12 +48,14 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
 
   const chromaOut = length2(abBase);
   const hueOut = Math.atan2(abBase[1], abBase[0]);
+  const tintLowStrength = clamp(config.tintLowStrength, 0, 1);
+  const tintHighStrength = clamp(config.tintHighStrength, 0, 1);
   const tintVec = scale3(
-    add3(scale3(tintLowDye, tintLowWeight), scale3(tintHighDye, tintHighWeight)),
-    config.tintStrength * TINT_RGB_SCALE
+    add3(scale3(tintLowDye, tintLowWeight * tintLowStrength), scale3(tintHighDye, tintHighWeight * tintHighStrength)),
+    TINT_RGB_SCALE
   );
   const rgbBase = oklchToSrgb([tone, chromaOut, hueOut]);
-  if (config.tintStrength <= 0) return rgbBase.map(channel => clamp(channel, 0, 1));
+  if (tintLowStrength <= 0 && tintHighStrength <= 0) return rgbBase.map(channel => clamp(channel, 0, 1));
   const rgbOut = applyLumaNeutralTint(rgbBase, tintVec);
   return rgbOut.map(channel => clamp(channel, 0, 1));
 }

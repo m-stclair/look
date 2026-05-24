@@ -50,7 +50,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     className: "tint-card"
   });
   tintCanvas.classList.add("tint-curve-canvas");
-  tintCanvas.setAttribute("aria-label", "Tint: drag low or high handle to set hue (X) and shared strength (Y); use the small lock beside H to toggle linked hues; use details to set crossover and rotation");
+  tintCanvas.setAttribute("aria-label", "Tint: drag low or high handle to set hue (X) and strength (Y); drag C to set crossover; use graph locks to link hue rotation or tint strength");
 
   let config = normalizeConfig(initialConfig);
   let sourceHistogram = null;
@@ -82,15 +82,16 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     for (const [key, value] of Object.entries(patch || {})) {
       nextConfig[key] = sanitizeControlValue(key, value);
     }
-    const changedKeys = changedConfigKeys(previousConfig, nextConfig);
+    const normalizedNextConfig = normalizeConfig(nextConfig);
+    const changedKeys = changedConfigKeys(previousConfig, normalizedNextConfig);
     if (!changedKeys.length) return;
 
-    config = nextConfig;
-    toneControls?.sync(nextConfig);
-    chromaControls?.sync(nextConfig);
-    tintControls?.sync(nextConfig);
-    scheduleRender(nextConfig, previewScopesForConfigKeys(changedKeys));
-    options.onConfigChange?.(nextConfig);
+    config = normalizedNextConfig;
+    toneControls?.sync(normalizedNextConfig);
+    chromaControls?.sync(normalizedNextConfig);
+    tintControls?.sync(normalizedNextConfig);
+    scheduleRender(normalizedNextConfig, previewScopesForConfigKeys(changedKeys));
+    options.onConfigChange?.(normalizedNextConfig);
   }
 
   const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(entries => {
@@ -192,8 +193,11 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
       hoverTintHandle = key;
       scheduleRender(config, "tint");
     },
+    setConfigValue,
     setConfigValues,
     toggleTintLink: () => tintControls?.toggleLinked?.(),
+    toggleTintStrengthLink: () => tintControls?.toggleStrengthLinked?.(),
+    setTintCrossoverValue: value => tintControls?.setTintCrossoverValue?.(value),
     setTintHandleValue: (key, hue, strength) => tintControls?.setTintHandleValue?.(key, hue, strength)
   });
 
@@ -271,7 +275,8 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
       drawTintPreview(tintCanvas, config, {
         activeTintHandle,
         hoverTintHandle,
-        tintLinked: tintControls?.isLinked?.() !== false
+        tintLinked: tintControls?.isLinked?.() !== false,
+        tintStrengthLinked: tintControls?.isStrengthLinked?.() !== false
       });
     }
   }
