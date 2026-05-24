@@ -4,7 +4,7 @@ A standalone extraction and expansion of `vandal`'s 'procedural LUT' `Look` effe
 
 Unlike `vandal` and some of its other children, Look is not for spatial-domain 
 processing, quantized / discrete effects, etc. Look is for fast, easy shaping 
-of continuous, invertible point transforms.
+of continuous, invertible point transforms that can be baked into LUTs.
 
 ## Run
 
