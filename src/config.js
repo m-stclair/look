@@ -55,7 +55,7 @@ export const CONTROL_GROUPS = Object.freeze([
     description: "Pivoted S-curve character: slope and shoulder; the S handle nudges the anchor horizontally.",
     controls: [
       {key: "curveStrength", label: "Tone Amount", min: 0, max: 1, step: 0.01},
-      {key: "toneShoulder", label: "Shoulder", min: 1, max: 6, step: 0.02}
+      {key: "toneShoulder", label: "Shoulder", min: 0.3, max: 6, step: 0.02}
     ],
     hiddenControls: [
       {key: "tonePivotNudge", label: "Pivot Nudge", min: -1, max: 1, step: 0.001}

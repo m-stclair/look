@@ -254,9 +254,9 @@ test("curve strength mast maps the strength range to a visible vertical amount",
 
 test("shoulder gauge maps the shoulder range to a vertical amount", () => {
   assert.equal(SHOULDER_GAUGE_HEIGHT, 44);
-  assert.equal(shoulderGaugeUnitFromToneShoulder(1), 0);
+  assert.equal(shoulderGaugeUnitFromToneShoulder(0.3), 0);
   assert.equal(shoulderGaugeUnitFromToneShoulder(6), 1);
-  assert.equal(toneShoulderFromGaugeUnit(0), 1);
+  assert.equal(toneShoulderFromGaugeUnit(0), 0.3);
   assert.equal(toneShoulderFromGaugeUnit(1), 6);
 });
 
@@ -264,8 +264,8 @@ test("shoulder gauge pointer drag is y-inverted so upward means stronger shoulde
   const top = 50;
   const height = 100;
   assert.equal(toneShoulderFromGaugePointer(top, top, height), 6);
-  assert.equal(toneShoulderFromGaugePointer(top + 50, top, height), 3.5);
-  assert.equal(toneShoulderFromGaugePointer(top + height, top, height), 1);
+  assert.equal(toneShoulderFromGaugePointer(top + 50, top, height), 3.15);
+  assert.equal(toneShoulderFromGaugePointer(top + height, top, height), 0.3);
 });
 
 test("shoulder remains algebraically dormant when curve strength is zero", () => {

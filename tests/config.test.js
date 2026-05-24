@@ -21,7 +21,7 @@ const expectedRanges = new Map([
   ["chromaGamma", {min: 0.1, max: 4, step: 0.01}],
   ["chromaExposure", {min: -5, max: 5, step: 0.05}],
   ["curveStrength", {min: 0, max: 1, step: 0.01}],
-  ["toneShoulder", {min: 1, max: 6, step: 0.02}],
+  ["toneShoulder", {min: 0.3, max: 6, step: 0.02}],
   ["tonePivotNudge", {min: -1, max: 1, step: 0.001}],
   ["lift", {min: -0.2, max: 0.2, step: 0.01}],
   ["midtone", {min: -0.2, max: 0.2, step: 0.01}],
