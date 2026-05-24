@@ -33,7 +33,7 @@ const expectedRanges = new Map([
   ["chromaFadeSoftness", {min: 0.02, max: 1, step: 0.01}],
   ["hueWindowCenter", {min: 0, max: 360, step: 0.01}],
   ["hueWindowChroma", {min: -1, max: 1, step: 0.01}],
-  ["hueWindowWidth", {min: 1, max: 180, step: 0.5}],
+  ["hueWindowWidth", {min: 1, max: 325, step: 0.5}],
   ["hueWindowSoftness", {min: 0, max: 1, step: 0.01}],
   ["tintLowHue", {min: 0, max: 360, step: 0.01}],
   ["tintHighHue", {min: 0, max: 360, step: 0.01}],
