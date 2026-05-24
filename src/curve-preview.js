@@ -1,11 +1,12 @@
-import { CHROMA_MAP_CONTROL_KEYS, TINT_CONTROL_KEYS, TONE_MAP_CONTROL_KEYS, normalizeConfig } from "./config.js";
+import { CHROMA_MAP_CONTROL_KEYS, HUE_WINDOW_CONTROL_KEYS, TINT_CONTROL_KEYS, TONE_MAP_CONTROL_KEYS, normalizeConfig } from "./config.js";
 import { createPreviewCard } from "./curve-preview/canvas.js";
 import { createChromaMapControls, bindChromaMapHandles, computeChromaGraphMetrics, drawChromaPreview } from "./curve-preview/chroma-map.js";
+import { createHueWindowControls, bindHueWindowHandles, drawHueWindowPreview } from "./curve-preview/hue-window.js";
 import { createTintControls, bindTintHandles, drawTintPreview } from "./curve-preview/tint.js";
 import { createToneMapControls, bindToneShapeHandles, bindTonalBalanceHandles, drawLumaPreview } from "./curve-preview/tone-map.js";
 import { normalizeSourceHistograms, sanitizeControlValue } from "./curve-preview/shared.js";
 
-const PREVIEW_SCOPES = Object.freeze(["luma", "chroma", "tint"]);
+const PREVIEW_SCOPES = Object.freeze(["luma", "chroma", "hue", "tint"]);
 const CHROMA_PREVIEW_CONTROL_KEYS = Object.freeze([
   ...CHROMA_MAP_CONTROL_KEYS,
   "exposure",
@@ -13,6 +14,7 @@ const CHROMA_PREVIEW_CONTROL_KEYS = Object.freeze([
 ]);
 const LUMA_PREVIEW_KEY_SET = new Set(TONE_MAP_CONTROL_KEYS);
 const CHROMA_PREVIEW_KEY_SET = new Set(CHROMA_PREVIEW_CONTROL_KEYS);
+const HUE_WINDOW_PREVIEW_KEY_SET = new Set(HUE_WINDOW_CONTROL_KEYS);
 const TINT_PREVIEW_KEY_SET = new Set(TINT_CONTROL_KEYS);
 
 export function previewScopesForConfigKeys(keys = []) {
@@ -20,6 +22,7 @@ export function previewScopesForConfigKeys(keys = []) {
   for (const key of keys) {
     if (LUMA_PREVIEW_KEY_SET.has(key)) scopes.add("luma");
     if (CHROMA_PREVIEW_KEY_SET.has(key)) scopes.add("chroma");
+    if (HUE_WINDOW_PREVIEW_KEY_SET.has(key)) scopes.add("hue");
     if (TINT_PREVIEW_KEY_SET.has(key)) scopes.add("tint");
   }
   return Array.from(scopes);
@@ -44,6 +47,14 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   });
   chromaCanvas.classList.add("chroma-curve-canvas");
 
+  const hueWindowCanvas = createPreviewCard(root, {
+    title: "Hue Window",
+    note: "Hue · Chroma",
+    className: "hue-window-card"
+  });
+  hueWindowCanvas.classList.add("hue-window-canvas");
+  hueWindowCanvas.setAttribute("aria-label", "Hue Window: drag in the graph to set center hue horizontally and chroma boost or cut vertically; use width and softness sliders for the notch shape");
+
   const tintCanvas = createPreviewCard(root, {
     title: "Tint",
     note: "Low / High · Strength",
@@ -65,12 +76,15 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   let hoverShapeHandle = null;
   let activeChromaHandle = null;
   let hoverChromaHandle = null;
+  let activeHueWindowHandle = null;
+  let hoverHueWindowHandle = null;
   let activeTintHandle = null;
   let hoverTintHandle = null;
   let toneControls = null;
   let chromaControls = null;
+  let hueWindowControls = null;
   let tintControls = null;
-  const dirtyPreviews = {luma: true, chroma: true, tint: true};
+  const dirtyPreviews = {luma: true, chroma: true, hue: true, tint: true};
 
   function setConfigValue(key, value) {
     setConfigValues({[key]: sanitizeControlValue(key, value)});
@@ -89,6 +103,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     config = normalizedNextConfig;
     toneControls?.sync(normalizedNextConfig);
     chromaControls?.sync(normalizedNextConfig);
+    hueWindowControls?.sync(normalizedNextConfig);
     tintControls?.sync(normalizedNextConfig);
     scheduleRender(normalizedNextConfig, previewScopesForConfigKeys(changedKeys));
     options.onConfigChange?.(normalizedNextConfig);
@@ -99,12 +114,14 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     for (const entry of entries || []) {
       if (entry.target === lumaCanvas) scopes.add("luma");
       if (entry.target === chromaCanvas) scopes.add("chroma");
+      if (entry.target === hueWindowCanvas) scopes.add("hue");
       if (entry.target === tintCanvas) scopes.add("tint");
     }
     scheduleRender(config, scopes.size ? Array.from(scopes) : PREVIEW_SCOPES);
   });
   resizeObserver?.observe(lumaCanvas);
   resizeObserver?.observe(chromaCanvas);
+  resizeObserver?.observe(hueWindowCanvas);
   resizeObserver?.observe(tintCanvas);
 
   toneControls = createToneMapControls(lumaCanvas, {
@@ -119,6 +136,13 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
     setConfigValue,
     setConfigValues,
     requestRender: () => scheduleRender(config, "chroma")
+  });
+
+  hueWindowControls = createHueWindowControls(hueWindowCanvas, {
+    getConfig: () => config,
+    setConfigValue,
+    setConfigValues,
+    requestRender: () => scheduleRender(config, "hue")
   });
 
   tintControls = createTintControls(tintCanvas, {
@@ -180,6 +204,22 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
       scheduleRender(config, "chroma");
     },
     setConfigValue
+  });
+
+  const unbindHueWindowHandles = bindHueWindowHandles(hueWindowCanvas, {
+    getConfig: () => config,
+    setActiveHandle: handle => {
+      activeHueWindowHandle = handle;
+      scheduleRender(config, "hue");
+    },
+    setHoverKey: key => {
+      if (hoverHueWindowHandle === key) return;
+      hoverHueWindowHandle = key;
+      scheduleRender(config, "hue");
+    },
+    setConfigValue,
+    setConfigValues,
+    setHueWindowHandleValue: (center, chroma) => hueWindowControls?.setHueWindowHandleValue?.(center, chroma)
   });
 
   const unbindTintHandles = bindTintHandles(tintCanvas, {
@@ -246,6 +286,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
 
     toneControls?.sync(config);
     chromaControls?.sync(config);
+    hueWindowControls?.sync(config);
     tintControls?.sync(config);
 
     if (shouldDraw.luma) {
@@ -268,6 +309,13 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
         sourceChromaByLuma,
         sourceMaxChroma,
         sourceChromaDomainMax
+      });
+    }
+
+    if (shouldDraw.hue) {
+      drawHueWindowPreview(hueWindowCanvas, config, {
+        activeHueWindowHandle,
+        hoverHueWindowHandle
       });
     }
 
@@ -306,9 +354,11 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
       unbindShapeHandles();
       unbindLumaHandles();
       unbindChromaHandles();
+      unbindHueWindowHandles();
       unbindTintHandles();
       toneControls?.destroy();
       chromaControls?.destroy();
+      hueWindowControls?.destroy();
       tintControls?.destroy();
     }
   };
@@ -382,3 +432,10 @@ export {
   toneShoulderFromGaugePointer,
   toneShoulderFromGaugeUnit
 } from "./curve-preview/tone-map.js";
+
+export {
+  hueWindowCenterFromHorizontalPosition,
+  hueWindowChromaFromVerticalPosition,
+  hueWindowChromaScaleForHue,
+  hueWindowMaskForHue
+} from "./curve-preview/hue-window.js";

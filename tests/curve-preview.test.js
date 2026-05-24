@@ -31,6 +31,10 @@ import {
   curveStrengthUnitFromValue,
   curveStrengthValueFromVerticalDrag,
   histogramDensityAtLuma,
+  hueWindowCenterFromHorizontalPosition,
+  hueWindowChromaFromVerticalPosition,
+  hueWindowChromaScaleForHue,
+  hueWindowMaskForHue,
   histogramDisplayProfile,
   inputLumaFromAdjustedLuma,
   lumaCurveSample,
@@ -335,13 +339,40 @@ test("chroma fade strength gauge is y-inverted so upward means more fade", () =>
 });
 
 
+test("hue window mask wraps around the red seam", () => {
+  const config = {hueWindowCenter: 350, hueWindowWidth: 20, hueWindowSoftness: 0.5};
+  assert.equal(hueWindowMaskForHue(350, config), 1);
+  assert.ok(hueWindowMaskForHue(0, config) > 0.95);
+  assert.equal(hueWindowMaskForHue(180, config), 0);
+});
+
+test("hue window chroma scale boosts or cuts only the selected hue", () => {
+  const boost = {hueWindowCenter: 120, hueWindowChroma: 0.5, hueWindowWidth: 30, hueWindowSoftness: 0.2};
+  assert.ok(hueWindowChromaScaleForHue(120, boost) > 1.49);
+  assert.equal(hueWindowChromaScaleForHue(300, boost), 1);
+
+  const cut = {...boost, hueWindowChroma: -1};
+  assert.equal(hueWindowChromaScaleForHue(120, cut), 0);
+});
+
+test("hue window drag maps x to hue and y to signed chroma", () => {
+  assert.equal(hueWindowCenterFromHorizontalPosition(50, 0, 100), 180);
+  assert.equal(hueWindowCenterFromHorizontalPosition(-50, 0, 100), 0);
+  assert.equal(hueWindowCenterFromHorizontalPosition(150, 0, 100), 360);
+  assert.equal(hueWindowChromaFromVerticalPosition(0, 0, 100), 1);
+  assert.equal(hueWindowChromaFromVerticalPosition(50, 0, 100), 0);
+  assert.equal(hueWindowChromaFromVerticalPosition(100, 0, 100), -1);
+});
+
 test("preview dirty scopes keep chroma redraws away from unrelated controls", () => {
   assert.deepEqual(previewScopesForConfigKeys(["tintStrength"]), ["tint"]);
+  assert.deepEqual(previewScopesForConfigKeys(["hueWindowChroma"]), ["hue"]);
   assert.deepEqual(previewScopesForConfigKeys(["lift"]), ["luma"]);
   assert.deepEqual(previewScopesForConfigKeys(["chromaGamma"]), ["chroma"]);
   assert.deepEqual(previewScopesForConfigKeys(["exposure"]).sort(), ["chroma", "luma"]);
   assert.deepEqual(previewScopesForConfigKeys(["gamma"]).sort(), ["chroma", "luma"]);
   assert.deepEqual(previewScopesForConfigKeys(["tintHighHue", "curveStrength"]).sort(), ["luma", "tint"]);
+  assert.deepEqual(previewScopesForConfigKeys(["hueWindowWidth", "curveStrength"]).sort(), ["hue", "luma"]);
 });
 
 test("changedConfigKeys reports only actual config changes", () => {

@@ -53,6 +53,10 @@ const LOOK_UNIFORM_NAMES = Object.freeze([
   "u_tint_low_strength",
   "u_tint_high_strength",
   "u_tint_center",
+  "u_hue_window_center",
+  "u_hue_window_chroma",
+  "u_hue_window_width",
+  "u_hue_window_softness",
   "u_lift",
   "u_midtone",
   "u_gain"
@@ -196,6 +200,10 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_tint_low_strength, config.tintLowStrength);
     gl.uniform1f(lookUniforms.u_tint_high_strength, config.tintHighStrength);
     gl.uniform1f(lookUniforms.u_tint_center, config.tintAxisCenter);
+    gl.uniform1f(lookUniforms.u_hue_window_center, config.hueWindowCenter);
+    gl.uniform1f(lookUniforms.u_hue_window_chroma, config.hueWindowChroma);
+    gl.uniform1f(lookUniforms.u_hue_window_width, config.hueWindowWidth);
+    gl.uniform1f(lookUniforms.u_hue_window_softness, config.hueWindowSoftness);
     gl.uniform1f(lookUniforms.u_lift, config.lift);
     gl.uniform1f(lookUniforms.u_midtone, config.midtone);
     gl.uniform1f(lookUniforms.u_gain, config.gain);

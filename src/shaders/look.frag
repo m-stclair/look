@@ -23,6 +23,10 @@ uniform vec3 u_tint_high;
 uniform float u_tint_low_strength;
 uniform float u_tint_high_strength;
 uniform float u_tint_center;
+uniform float u_hue_window_center;
+uniform float u_hue_window_chroma;
+uniform float u_hue_window_width;
+uniform float u_hue_window_softness;
 uniform float u_lift;
 uniform float u_midtone;
 uniform float u_gain;
@@ -132,6 +136,24 @@ float pivotedLogitCurve(float L, float pivot, float slope) {
     return clamp(invLogit(t), 0.0, 1.0);
 }
 
+float hueDistanceRadians(float hue, float center) {
+    return abs(atan(sin(hue - center), cos(hue - center)));
+}
+
+float hueWindowMask(float hue) {
+    float center = radians(u_hue_window_center);
+    float core_half = radians(max(u_hue_window_width, 0.0) * 0.5);
+    float feather = radians(max(0.25, core_half * 57.2957795131 * clamp(u_hue_window_softness, 0.0, 1.0)));
+    float distance = hueDistanceRadians(hue, center);
+    return 1.0 - smoothstep(core_half, core_half + feather, distance);
+}
+
+float applyHueWindowChroma(float chroma, float hue) {
+    float mask = hueWindowMask(hue);
+    float scale = max(0.0, 1.0 + u_hue_window_chroma * mask);
+    return chroma * scale;
+}
+
 float applyLiftMidtoneGain(float L, float lift, float midtone, float gain) {
     float shadow = 1.0 - smoothstep(sLow, sHigh, L);
     float mid = smoothstep(sLow, sHigh, L) * (1.0 - smoothstep(hLow, hHigh, L));
@@ -191,6 +213,7 @@ vec3 applyLook(vec3 srgb) {
     float chroma_fade_ramp = smoothstep(chroma_fade_low, chroma_fade_high, luma);
     float chroma_fade = mix(chroma_fade_ramp, 1.0 - chroma_fade_ramp, step(0.5, u_chroma_fade_region));
     float chroma_base = mix(chroma, chroma * chroma_fade, u_chroma_fade_strength);
+    chroma_base = applyHueWindowChroma(chroma_base, hue);
 
     vec2 ab_base = vec2(0.0);
     if (chroma_base > 1e-5) {

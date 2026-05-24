@@ -25,6 +25,10 @@ const requiredUniforms = [
   "u_tint_low_strength",
   "u_tint_high_strength",
   "u_tint_center",
+  "u_hue_window_center",
+  "u_hue_window_chroma",
+  "u_hue_window_width",
+  "u_hue_window_softness",
   "u_curve_strength"
 ];
 
@@ -64,6 +68,18 @@ test("look shader includes gamma and exposure shaping helpers", async () => {
   assert.match(source, /gammaAdjust\(exposureAdjust\(lch\.y, u_chroma_exposure\), u_chroma_gamma\)/);
 });
 
+
+test("look shader applies hue window chroma before OKLCH reconstruction", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.match(source, /float\s+hueDistanceRadians\s*\(/);
+  assert.match(source, /float\s+hueWindowMask\s*\(/);
+  assert.match(source, /float\s+applyHueWindowChroma\s*\(/);
+  assert.match(source, /u_hue_window_center/);
+  assert.match(source, /u_hue_window_chroma/);
+  assert.match(source, /u_hue_window_width/);
+  assert.match(source, /u_hue_window_softness/);
+  assert.match(source, /chroma_base\s*=\s*applyHueWindowChroma\(chroma_base,\s*hue\)/);
+});
 
 test("look shader applies tint as luma-neutral RGB dye scaled against tint headroom", async () => {
   const source = await readFile(shaderPath, "utf8");

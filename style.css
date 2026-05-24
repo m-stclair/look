@@ -1388,3 +1388,61 @@ input[type="number"]:hover { border-color: var(--line-strong); }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.hue-window-card {
+  gap: 7px;
+  padding: 8px;
+  border-color: var(--line-strong);
+  background: linear-gradient(180deg, rgba(20,24,31,.86), rgba(12,16,21,.98));
+}
+
+.hue-window-card .curve-preview-header {
+  align-items: center;
+}
+
+.hue-window-card canvas {
+  height: 132px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.hue-window-readouts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hue-window-sidecar {
+  display: grid;
+  gap: 5px;
+  padding-top: 2px;
+  border-top: 1px solid var(--line);
+}
+
+.hue-window-sidecar .tone-dock-range {
+  grid-template-columns: 54px minmax(0, 1fr) 2.5rem;
+  gap: 6px;
+  width: 100%;
+}
+
+.hue-window-sidecar .tone-dock-range input[type="range"] {
+  width: 100%;
+}
+
+.hue-window-card canvas.is-over-hue-window-handle,
+.hue-window-card canvas.is-dragging-hue-window-handle {
+  cursor: move;
+}
+
+.hue-window-card.is-hue-window-active .hue-window-chip[data-key="hueWindowChroma"] {
+  border-color: rgba(143,180,223,.58);
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .hue-window-readouts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hue-window-card canvas {
+    height: 118px;
+  }
+}

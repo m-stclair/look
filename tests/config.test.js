@@ -4,6 +4,7 @@ import {
   CHROMA_MAP_CONTROL_KEYS,
   CONTROL_GROUPS,
   DEFAULT_CONFIG,
+  HUE_WINDOW_CONTROL_KEYS,
   TINT_CONTROL_KEYS,
   TONE_MAP_CONTROL_KEYS,
   cloneDefaultConfig,
@@ -11,6 +12,7 @@ import {
   normalizeConfig,
   resetChromaMapConfig,
   resetControlGroup,
+  resetHueWindowConfig,
   resetTintConfig,
   resetToneMapConfig
 } from "../src/config.js";
@@ -30,6 +32,10 @@ const expectedRanges = new Map([
   ["chromaFadeRegion", {min: 0, max: 1, step: 1}],
   ["chromaFadeCenter", {min: 0, max: 1, step: 0.01}],
   ["chromaFadeSoftness", {min: 0.02, max: 1, step: 0.01}],
+  ["hueWindowCenter", {min: 0, max: 360, step: 0.01}],
+  ["hueWindowChroma", {min: -1, max: 1, step: 0.01}],
+  ["hueWindowWidth", {min: 1, max: 180, step: 0.5}],
+  ["hueWindowSoftness", {min: 0, max: 1, step: 0.01}],
   ["tintLowHue", {min: 0, max: 360, step: 0.01}],
   ["tintHighHue", {min: 0, max: 360, step: 0.01}],
   ["tintLowStrength", {min: 0, max: 1, step: 0.01}],
@@ -50,9 +56,10 @@ test("control groups separate tone curve from post-curve tonal balance", () => {
     "Tone Curve",
     "Tonal Balance",
     "Chroma Fade",
+    "Hue Window",
     "Tint"
   ]);
-  assert.deepEqual(CONTROL_GROUPS.map(group => group.id), ["adjustments", "tone", "tonal-balance", "chroma", "tint"]);
+  assert.deepEqual(CONTROL_GROUPS.map(group => group.id), ["adjustments", "tone", "tonal-balance", "chroma", "hue-window", "tint"]);
 });
 
 test("every visible UI control maps once to an existing config key", () => {
@@ -214,6 +221,33 @@ test("resetChromaMapConfig restores only chroma map parameters", () => {
   resetChromaMapConfig(config);
 
   for (const key of CHROMA_MAP_CONTROL_KEYS) {
+    assert.equal(config[key], DEFAULT_CONFIG[key], `${key} should reset`);
+  }
+  assert.equal(config.exposure, 2);
+  assert.equal(config.tintStrength, 0.6);
+});
+
+
+test("hue window control keys cover the selective chroma notch", () => {
+  assert.deepEqual(HUE_WINDOW_CONTROL_KEYS, ["hueWindowCenter", "hueWindowChroma", "hueWindowWidth", "hueWindowSoftness"]);
+  for (const key of HUE_WINDOW_CONTROL_KEYS) {
+    assert.ok(Object.hasOwn(DEFAULT_CONFIG, key), `Unknown hue window key: ${key}`);
+  }
+});
+
+test("resetHueWindowConfig restores only hue window parameters", () => {
+  const config = normalizeConfig({
+    hueWindowCenter: 125,
+    hueWindowChroma: -0.6,
+    hueWindowWidth: 90,
+    hueWindowSoftness: 0.12,
+    exposure: 2,
+    tintStrength: 0.6
+  });
+
+  resetHueWindowConfig(config);
+
+  for (const key of HUE_WINDOW_CONTROL_KEYS) {
     assert.equal(config[key], DEFAULT_CONFIG[key], `${key} should reset`);
   }
   assert.equal(config.exposure, 2);

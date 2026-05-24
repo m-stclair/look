@@ -16,6 +16,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   tintHighStrength: 0,
   tintAxisCenter: 0.5,
   tintStrength: 0,
+  hueWindowCenter: 0,
+  hueWindowChroma: 0,
+  hueWindowWidth: 50,
+  hueWindowSoftness: 0.45,
   lift: 0,
   midtone: 0,
   gain: 0
@@ -39,6 +43,13 @@ export const CHROMA_MAP_CONTROL_KEYS = Object.freeze([
   "chromaFadeRegion",
   "chromaFadeCenter",
   "chromaFadeSoftness"
+]);
+
+export const HUE_WINDOW_CONTROL_KEYS = Object.freeze([
+  "hueWindowCenter",
+  "hueWindowChroma",
+  "hueWindowWidth",
+  "hueWindowSoftness"
 ]);
 
 export const CONTROL_GROUPS = Object.freeze([
@@ -86,6 +97,17 @@ export const CONTROL_GROUPS = Object.freeze([
     ],
     hiddenControls: [
       {key: "chromaFadeRegion", label: "Region", min: 0, max: 1, step: 1}
+    ]
+  },
+  {
+    id: "hue-window",
+    label: "Hue Window",
+    description: "A single hue notch that boosts or cuts chroma inside a soft hue window.",
+    controls: [
+      {key: "hueWindowCenter", label: "Center Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
+      {key: "hueWindowChroma", label: "Chroma", min: -1, max: 1, step: 0.01},
+      {key: "hueWindowWidth", label: "Width", min: 1, max: 180, step: 0.5, suffix: "°"},
+      {key: "hueWindowSoftness", label: "Softness", min: 0, max: 1, step: 0.01}
     ]
   },
   {
@@ -163,6 +185,13 @@ export function resetToneMapConfig(config) {
 
 export function resetChromaMapConfig(config) {
   for (const key of CHROMA_MAP_CONTROL_KEYS) {
+    config[key] = DEFAULT_CONFIG[key];
+  }
+  return config;
+}
+
+export function resetHueWindowConfig(config) {
+  for (const key of HUE_WINDOW_CONTROL_KEYS) {
     config[key] = DEFAULT_CONFIG[key];
   }
   return config;
