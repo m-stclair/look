@@ -16,17 +16,45 @@ export function uploadImageTexture(gl, texture, imageSource, {filter = gl.NEARES
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageSource);
 }
 
-export function allocateRgbaTexture(gl, texture, width, height, {filter = gl.LINEAR} = {}) {
+export function supportsHalfFloatRenderTargets(gl) {
+  return !!gl?.getExtension?.("EXT_color_buffer_float");
+}
+
+export function resolveRenderTextureFormat(gl, {preferHalfFloat = true} = {}) {
+  if (preferHalfFloat && supportsHalfFloatRenderTargets(gl) && Number.isFinite(gl?.RGBA16F) && Number.isFinite(gl?.HALF_FLOAT)) {
+    return {
+      internalFormat: gl.RGBA16F,
+      format: gl.RGBA,
+      type: gl.HALF_FLOAT,
+      halfFloat: true,
+      label: "RGBA16F"
+    };
+  }
+
+  return {
+    internalFormat: gl.RGBA,
+    format: gl.RGBA,
+    type: gl.UNSIGNED_BYTE,
+    halfFloat: false,
+    label: "RGBA8"
+  };
+}
+
+export function allocateRgbaTexture(gl, texture, width, height, {
+  filter = gl.LINEAR,
+  pixelFormat = resolveRenderTextureFormat(gl)
+} = {}) {
   configureTexture(gl, texture, {filter});
   gl.texImage2D(
     gl.TEXTURE_2D,
     0,
-    gl.RGBA,
+    pixelFormat.internalFormat,
     Math.max(1, Math.round(width)),
     Math.max(1, Math.round(height)),
     0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
+    pixelFormat.format,
+    pixelFormat.type,
     null
   );
+  return pixelFormat;
 }

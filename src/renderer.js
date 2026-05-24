@@ -1,6 +1,6 @@
 import { createWebgl2Context, resizeDrawingBuffer } from "./gl/context.js";
 import { linkProgram } from "./gl/programs.js";
-import { allocateRgbaTexture, createTexture, uploadImageTexture } from "./gl/textures.js";
+import { allocateRgbaTexture, createTexture, resolveRenderTextureFormat, uploadImageTexture } from "./gl/textures.js";
 import { renderViewComposite, VIEW_COMPOSITE_UNIFORM_NAMES } from "./gl/view-composite-renderer.js";
 import { normalizeConfig } from "./config.js";
 import { effectiveToneCenter } from "./curve-preview.js";
@@ -59,6 +59,7 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
   const lookUniforms = collectUniforms(gl, lookProgram, LOOK_UNIFORM_NAMES);
   const compositeUniforms = collectUniforms(gl, compositeProgram, VIEW_COMPOSITE_UNIFORM_NAMES);
   const processedTarget = {width: 0, height: 0};
+  let processedTextureFormat = resolveRenderTextureFormat(gl);
   const compare = {enabled: false, split: 0.5};
   let config = normalizeConfig();
   let imageSource = null;
@@ -179,16 +180,31 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     if (processedTarget.width === width && processedTarget.height === height) return;
 
     gl.activeTexture(gl.TEXTURE0);
-    allocateRgbaTexture(gl, processedTexture, width, height, {filter: gl.LINEAR});
     gl.bindFramebuffer(gl.FRAMEBUFFER, processedFramebuffer);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, processedTexture, 0);
-    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+
+    let status = allocateProcessedTarget(width, height, processedTextureFormat);
+    if (status !== gl.FRAMEBUFFER_COMPLETE && processedTextureFormat.halfFloat) {
+      processedTextureFormat = resolveRenderTextureFormat(gl, {preferHalfFloat: false});
+      status = allocateProcessedTarget(width, height, processedTextureFormat);
+    }
+
     if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       throw new Error(`Processed render target is incomplete: ${status}`);
     }
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     processedTarget.width = width;
     processedTarget.height = height;
+  }
+
+  function allocateProcessedTarget(width, height, pixelFormat) {
+    allocateRgbaTexture(gl, processedTexture, width, height, {
+      filter: gl.LINEAR,
+      pixelFormat
+    });
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, processedTexture, 0);
+    return gl.checkFramebufferStatus(gl.FRAMEBUFFER);
   }
 
   function exportPng(filename = "look.png") {
