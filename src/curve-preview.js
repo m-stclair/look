@@ -33,6 +33,17 @@ export function changedConfigKeys(previousConfig = {}, nextConfig = {}) {
   return Array.from(keys).filter(key => previousConfig?.[key] !== nextConfig?.[key]);
 }
 
+function clonePreviewConfig(source = {}) {
+  const nextConfig = cloneDefaultConfig();
+  const sourceConfig = source && typeof source === "object" ? source : {};
+  for (const key of Object.keys(nextConfig)) {
+    if (Object.prototype.hasOwnProperty.call(sourceConfig, key)) {
+      nextConfig[key] = sanitizeControlValue(key, Number(sourceConfig[key]));
+    }
+  }
+  return nextConfig;
+}
+
 export function createCurvePreviews(root, initialConfig, options = {}) {
   root.textContent = "";
   const lumaCanvas = createPreviewCard(root, {
@@ -63,7 +74,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   tintCanvas.classList.add("tint-curve-canvas");
   tintCanvas.setAttribute("aria-label", "Tint: drag low or high handle to set hue (X) and strength (Y); drag C to set crossover; use graph locks to link hue rotation or tint strength");
 
-  let config = initialConfig || cloneDefaultConfig();
+  let config = clonePreviewConfig(initialConfig);
   let sourceHistogram = null;
   let sourceChromaHistogram = null;
   let sourceChromaByLuma = null;
@@ -271,8 +282,9 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   }
 
   function renderConfig(nextConfig = config) {
-    const changedKeys = changedConfigKeys(config, nextConfig || config);
-    config = nextConfig || config;
+    const normalizedConfig = clonePreviewConfig(nextConfig || config);
+    const changedKeys = changedConfigKeys(config, normalizedConfig);
+    config = normalizedConfig;
     markDirty(previewScopesForConfigKeys(changedKeys));
     scheduleRender(config);
   }
