@@ -34,7 +34,7 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const toneBase = pivotedLogitCurve(luma, pivot, toneSlope);
   const tone = applyLiftMidtoneGain(toneBase, config.lift, config.midtone, config.gain);
 
-  const chromaFade = smoothstep(config.chromaFadeLow, config.chromaFadeHigh, luma);
+  const chromaFade = chromaFadeMask(luma, config);
   const chromaBase = mix(chroma, chroma * chromaFade, config.chromaFadeStrength);
   const abBase = chromaBase > 1e-5 ? scale2(normalize2(ab), chromaBase) : [0, 0];
 
@@ -168,6 +168,13 @@ function smoothstep(edge0, edge1, value) {
   if (edge0 === edge1) return value < edge0 ? 0 : 1;
   const t = clamp((value - edge0) / (edge1 - edge0), 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+function chromaFadeMask(luma, config) {
+  const center = clamp(config.chromaFadeCenter, 0, 1);
+  const softness = clamp(config.chromaFadeSoftness, 0.02, 1);
+  const ramp = smoothstep(center - softness / 2, center + softness / 2, luma);
+  return config.chromaFadeRegion >= 0.5 ? 1 - ramp : ramp;
 }
 
 function mix(a, b, amount) {

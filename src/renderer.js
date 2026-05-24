@@ -27,8 +27,9 @@ const LOOK_UNIFORM_NAMES = Object.freeze([
   "u_chroma_gamma",
   "u_chroma_exposure",
   "u_chroma_fade_strength",
-  "u_chroma_fade_low",
-  "u_chroma_fade_high",
+  "u_chroma_fade_region",
+  "u_chroma_fade_center",
+  "u_chroma_fade_softness",
   "u_shoulder",
   "u_tone_center",
   "u_curve_strength",
@@ -152,9 +153,10 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
     gl.uniform1f(lookUniforms.u_exposure, config.exposure);
     gl.uniform1f(lookUniforms.u_chroma_gamma, config.chromaGamma);
     gl.uniform1f(lookUniforms.u_chroma_exposure, config.chromaExposure);
-    gl.uniform1f(lookUniforms.u_chroma_fade_low, config.chromaFadeLow);
-    gl.uniform1f(lookUniforms.u_chroma_fade_high, config.chromaFadeHigh);
     gl.uniform1f(lookUniforms.u_chroma_fade_strength, config.chromaFadeStrength);
+    gl.uniform1f(lookUniforms.u_chroma_fade_region, config.chromaFadeRegion);
+    gl.uniform1f(lookUniforms.u_chroma_fade_center, config.chromaFadeCenter);
+    gl.uniform1f(lookUniforms.u_chroma_fade_softness, config.chromaFadeSoftness);
     gl.uniform1f(lookUniforms.u_shoulder, config.toneShoulder);
     gl.uniform1f(lookUniforms.u_tone_center, effectiveToneCenter(config));
     gl.uniform1f(lookUniforms.u_curve_strength, config.curveStrength);

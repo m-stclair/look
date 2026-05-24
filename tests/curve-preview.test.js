@@ -10,8 +10,11 @@ import {
   chromaCurveSample,
   chromaExposureValueFromHorizontalPosition,
   chromaExposureValueFromPlacementInputChroma,
-  chromaFadeBoundaryUnitFromValue,
-  chromaFadeBoundaryValueFromUnit,
+  chromaFadeCenterUnitFromValue,
+  chromaFadeCenterValueFromUnit,
+  chromaFadeMask,
+  chromaFadeSoftnessFromHorizontalPosition,
+  chromaFadeSoftnessUnitFromValue,
   chromaFadeStrengthFromGaugePointer,
   chromaFadeStrengthUnitFromValue,
   chromaGammaValueFromVerticalDrag,
@@ -303,12 +306,23 @@ test("chroma gamma shape handle drag maps upward motion to stronger bend", () =>
   assert.ok(chromaGammaValueFromVerticalDrag(start, 50, 100) < start);
 });
 
-test("chroma fade rails map their full parameter range into a visible lane", () => {
-  assert.equal(chromaFadeBoundaryUnitFromValue(-6), 0);
-  assert.equal(chromaFadeBoundaryUnitFromValue(0), 0.5);
-  assert.equal(chromaFadeBoundaryUnitFromValue(6), 1);
-  assert.equal(chromaFadeBoundaryValueFromUnit(0), -6);
-  assert.equal(chromaFadeBoundaryValueFromUnit(1), 6);
+test("chroma fade center and softness map onto the luma mask lane", () => {
+  assert.equal(chromaFadeCenterUnitFromValue(0), 0);
+  assert.equal(chromaFadeCenterUnitFromValue(0.5), 0.5);
+  assert.equal(chromaFadeCenterUnitFromValue(1), 1);
+  assert.equal(chromaFadeCenterValueFromUnit(0), 0);
+  assert.equal(chromaFadeCenterValueFromUnit(1), 1);
+  assert.equal(chromaFadeSoftnessUnitFromValue(0.02), 0);
+  assert.equal(chromaFadeSoftnessUnitFromValue(1), 1);
+  assert.ok(Math.abs(chromaFadeSoftnessFromHorizontalPosition(80, 0, 100, {chromaFadeCenter: 0.5}) - 0.6) < 1e-12);
+});
+
+test("chroma fade mask can target shadows or highlights", () => {
+  const base = {chromaFadeCenter: 0.5, chromaFadeSoftness: 0.4};
+  assert.equal(chromaFadeMask(0, {...base, chromaFadeRegion: 0}), 0);
+  assert.equal(chromaFadeMask(1, {...base, chromaFadeRegion: 0}), 1);
+  assert.equal(chromaFadeMask(0, {...base, chromaFadeRegion: 1}), 1);
+  assert.equal(chromaFadeMask(1, {...base, chromaFadeRegion: 1}), 0);
 });
 
 test("chroma fade strength gauge is y-inverted so upward means more fade", () => {

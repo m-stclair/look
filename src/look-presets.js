@@ -43,9 +43,10 @@ export const BUILT_IN_LOOKS = Object.freeze([
       tintHighHue: 212,
       tintLowHue: 32,
       tintStrength: 0.14,
-      chromaFadeStrength: 0.8,
-      chromaFadeLow: -2.2,
-      chromaFadeHigh: 1.4
+      chromaFadeStrength: 0.72,
+      chromaFadeRegion: 0,
+      chromaFadeCenter: 0.42,
+      chromaFadeSoftness: 0.74
     }
   }),
   createLook({
@@ -61,8 +62,9 @@ export const BUILT_IN_LOOKS = Object.freeze([
       chromaExposure: 0.42,
       chromaGamma: 1.1,
       chromaFadeStrength: 0.12,
-      chromaFadeLow: -3.4,
-      chromaFadeHigh: 2.8,
+      chromaFadeRegion: 0,
+      chromaFadeCenter: 0.5,
+      chromaFadeSoftness: 1,
       tintHighHue: 68,
       tintLowHue: 248,
       tintStrength: 0.05

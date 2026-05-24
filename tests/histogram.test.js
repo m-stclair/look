@@ -102,7 +102,7 @@ test("joint chroma histogram transform applies luma-aware chroma fade", () => {
   const joint = new Float32Array(16);
   joint[0 * 4 + 3] = 4;
   joint[3 * 4 + 3] = 4;
-  const transformed = transformChromaJointHistogram(joint, {chromaFadeStrength: 1, chromaFadeLow: 0, chromaFadeHigh: 1}, 4);
+  const transformed = transformChromaJointHistogram(joint, {chromaFadeStrength: 1, chromaFadeRegion: 0, chromaFadeCenter: 0.5, chromaFadeSoftness: 1}, 4);
   assert.ok(transformed[0] > 0, "low-luma chroma should fade toward the low bins");
   assert.ok(transformed[2] + transformed[3] > 0, "high-luma chroma should retain high-bin mass");
 });

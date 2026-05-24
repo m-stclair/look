@@ -12,7 +12,8 @@ export const CHROMA_DISPLAY_PERCENTILE = 0.99;
 export const CHROMA_DEFAULT_DISPLAY_MAX = 0.25;
 export const CHROMA_MIN_DISPLAY_MAX = 0.05;
 export const CHROMA_FADE_GAUGE_HEIGHT = 36;
-export const CHROMA_FADE_LANE_BOTTOM_OFFSET = 18;
+export const CHROMA_FADE_MASK_HEIGHT = 42;
+export const CHROMA_FADE_LANE_BOTTOM_OFFSET = 16;
 export const LUMA_REFERENCE_SAMPLES = Object.freeze([
   {label: "shadow", luma: 0.18, dash: [2, 3], alpha: 0.44},
   {label: "mid", luma: 0.5, dash: [], alpha: 0.92},
@@ -41,8 +42,9 @@ export function chromaCurveParams(rawConfig = {}) {
     chromaExposure: configScalar(rawConfig, "chromaExposure"),
     chromaGamma: configScalar(rawConfig, "chromaGamma"),
     chromaFadeStrength: configScalar(rawConfig, "chromaFadeStrength"),
-    chromaFadeLow: configScalar(rawConfig, "chromaFadeLow"),
-    chromaFadeHigh: configScalar(rawConfig, "chromaFadeHigh")
+    chromaFadeRegion: configScalar(rawConfig, "chromaFadeRegion"),
+    chromaFadeCenter: configScalar(rawConfig, "chromaFadeCenter"),
+    chromaFadeSoftness: configScalar(rawConfig, "chromaFadeSoftness")
   };
 }
 
@@ -57,7 +59,7 @@ export function chromaBaseCurveSampleWithParams(inputChroma, params) {
 export function chromaCurveSampleWithParams(inputChroma, inputLuma = 0.5, params) {
   const luma = adjustedLumaFromInputLumaWithParams(inputLuma, params);
   const chroma = chromaBaseCurveSampleWithParams(inputChroma, params);
-  const chromaFade = smoothstep(params.chromaFadeLow, params.chromaFadeHigh, luma);
+  const chromaFade = chromaFadeMask(luma, params);
   return mix(chroma, chroma * chromaFade, params.chromaFadeStrength);
 }
 
@@ -257,23 +259,59 @@ export function chromaGammaValueFromVerticalDrag(startValue, deltaClientY, plotH
   return sanitizeControlValue("chromaGamma", startValue * Math.pow(2, octaves));
 }
 
-export function chromaFadeBoundaryUnitFromValue(value) {
-  const control = CONTROL_DEFINITIONS.get("chromaFadeLow");
-  const min = control?.min ?? -6;
-  const max = control?.max ?? 6;
-  return clamp01((sanitizeControlValue("chromaFadeLow", value) - min) / Math.max(1e-9, max - min));
+export function chromaFadeWindow(rawConfig = {}) {
+  const config = normalizeConfig(rawConfig);
+  const center = sanitizeControlValue("chromaFadeCenter", config.chromaFadeCenter);
+  const softness = sanitizeControlValue("chromaFadeSoftness", config.chromaFadeSoftness);
+  const half = softness / 2;
+  return {
+    center,
+    softness,
+    low: center - half,
+    high: center + half
+  };
 }
 
-export function chromaFadeBoundaryValueFromUnit(unit) {
-  const control = CONTROL_DEFINITIONS.get("chromaFadeLow");
-  const min = control?.min ?? -6;
-  const max = control?.max ?? 6;
-  return sanitizeControlValue("chromaFadeLow", mix(min, max, clamp01(unit)));
+export function chromaFadeMask(adjustedLuma, rawConfig = {}) {
+  const config = normalizeConfig(rawConfig);
+  const {low, high} = chromaFadeWindow(config);
+  const ramp = smoothstep(low, high, adjustedLuma);
+  return config.chromaFadeRegion >= 0.5 ? 1 - ramp : ramp;
 }
 
-export function chromaFadeBoundaryValueFromHorizontalPosition(clientX, left, width) {
+export function chromaFadeRegionLabel(value) {
+  return sanitizeControlValue("chromaFadeRegion", value) >= 0.5 ? "Highlights" : "Shadows";
+}
+
+export function chromaFadeCenterUnitFromValue(value) {
+  return clamp01(sanitizeControlValue("chromaFadeCenter", value));
+}
+
+export function chromaFadeCenterValueFromUnit(unit) {
+  return sanitizeControlValue("chromaFadeCenter", clamp01(unit));
+}
+
+export function chromaFadeCenterValueFromHorizontalPosition(clientX, left, width) {
   const unit = width > 0 ? (clientX - left) / width : 0;
-  return chromaFadeBoundaryValueFromUnit(unit);
+  return chromaFadeCenterValueFromUnit(unit);
+}
+
+export function chromaFadeSoftnessUnitFromValue(value) {
+  const control = CONTROL_DEFINITIONS.get("chromaFadeSoftness");
+  const min = control?.min ?? 0.02;
+  const max = control?.max ?? 1;
+  return clamp01((sanitizeControlValue("chromaFadeSoftness", value) - min) / Math.max(1e-9, max - min));
+}
+
+export function chromaFadeSoftnessEdgeUnit(rawConfig = {}) {
+  const {center, softness} = chromaFadeWindow(rawConfig);
+  return clamp01(center + softness / 2);
+}
+
+export function chromaFadeSoftnessFromHorizontalPosition(clientX, left, width, rawConfig = {}) {
+  const center = chromaFadeWindow(rawConfig).center;
+  const pointerUnit = width > 0 ? clamp01((clientX - left) / width) : center;
+  return sanitizeControlValue("chromaFadeSoftness", Math.abs(pointerUnit - center) * 2);
 }
 
 export function chromaFadeStrengthUnitFromValue(value) {

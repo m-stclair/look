@@ -1139,11 +1139,38 @@ input[type="number"]:hover { border-color: var(--line-strong); }
 }
 
 .chroma-map-readouts {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .chroma-map-details .tone-dock-range {
   grid-template-columns: 76px minmax(0, 1fr) 2.25rem;
+}
+
+.chroma-region-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chroma-region-buttons button {
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.035);
+  color: var(--muted);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chroma-region-buttons button.is-active {
+  border-color: rgba(143,180,223,.64);
+  background: rgba(143,180,223,.16);
+  color: var(--soft);
 }
 
 @media (max-width: 880px) {

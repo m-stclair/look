@@ -7,8 +7,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   tonePivotNudge: 0,
   curveStrength: 0,
   chromaFadeStrength: 0,
-  chromaFadeLow: -3,
-  chromaFadeHigh: 2,
+  chromaFadeRegion: 0,
+  chromaFadeCenter: 0.5,
+  chromaFadeSoftness: 1,
   tintLowHue: 248,
   tintHighHue: 68,
   tintStrength: 0,
@@ -33,8 +34,9 @@ export const CHROMA_MAP_CONTROL_KEYS = Object.freeze([
   "chromaExposure",
   "chromaGamma",
   "chromaFadeStrength",
-  "chromaFadeLow",
-  "chromaFadeHigh"
+  "chromaFadeRegion",
+  "chromaFadeCenter",
+  "chromaFadeSoftness"
 ]);
 
 export const CONTROL_GROUPS = Object.freeze([
@@ -74,11 +76,14 @@ export const CONTROL_GROUPS = Object.freeze([
   {
     id: "chroma",
     label: "Chroma Fade",
-    description: "Saturation scale with a lightness-based rolloff window.",
+    description: "A luma mask that scales chroma by brightness.",
     controls: [
-      {key: "chromaFadeStrength", label: "Fade Strength", min: 0, max: 1, step: 0.01},
-      {key: "chromaFadeLow", label: "Fade Low", min: -6, max: 6, step: 0.1},
-      {key: "chromaFadeHigh", label: "Fade High", min: -6, max: 6, step: 0.1}
+      {key: "chromaFadeStrength", label: "Amount", min: 0, max: 1, step: 0.01},
+      {key: "chromaFadeCenter", label: "Center", min: 0, max: 1, step: 0.01},
+      {key: "chromaFadeSoftness", label: "Softness", min: 0.02, max: 1, step: 0.01}
+    ],
+    hiddenControls: [
+      {key: "chromaFadeRegion", label: "Region", min: 0, max: 1, step: 1}
     ]
   },
   {

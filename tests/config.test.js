@@ -26,9 +26,10 @@ const expectedRanges = new Map([
   ["lift", {min: -0.2, max: 0.2, step: 0.01}],
   ["midtone", {min: -0.2, max: 0.2, step: 0.01}],
   ["gain", {min: -0.2, max: 0.2, step: 0.01}],
-  ["chromaFadeLow", {min: -6, max: 6, step: 0.1}],
-  ["chromaFadeHigh", {min: -6, max: 6, step: 0.1}],
   ["chromaFadeStrength", {min: 0, max: 1, step: 0.01}],
+  ["chromaFadeRegion", {min: 0, max: 1, step: 1}],
+  ["chromaFadeCenter", {min: 0, max: 1, step: 0.01}],
+  ["chromaFadeSoftness", {min: 0.02, max: 1, step: 0.01}],
   ["tintLowHue", {min: 0, max: 360, step: 0.01}],
   ["tintHighHue", {min: 0, max: 360, step: 0.01}],
   ["tintStrength", {min: 0, max: 1, step: 0.01}],
@@ -179,8 +180,9 @@ test("chroma map control keys include graph-owned chroma parameters", () => {
     "chromaExposure",
     "chromaGamma",
     "chromaFadeStrength",
-    "chromaFadeLow",
-    "chromaFadeHigh"
+    "chromaFadeRegion",
+    "chromaFadeCenter",
+    "chromaFadeSoftness"
   ]);
   for (const key of CHROMA_MAP_CONTROL_KEYS) {
     assert.ok(Object.hasOwn(DEFAULT_CONFIG, key), `Unknown chroma map key: ${key}`);
@@ -192,8 +194,9 @@ test("resetChromaMapConfig restores only chroma map parameters", () => {
     chromaExposure: 1.5,
     chromaGamma: 1.7,
     chromaFadeStrength: 0.8,
-    chromaFadeLow: -1,
-    chromaFadeHigh: 0.7,
+    chromaFadeRegion: 1,
+    chromaFadeCenter: 0.35,
+    chromaFadeSoftness: 0.42,
     exposure: 2,
     tintStrength: 0.6
   });

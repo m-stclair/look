@@ -12,8 +12,9 @@ uniform float u_exposure;
 uniform float u_chroma_gamma;
 uniform float u_chroma_exposure;
 uniform float u_chroma_fade_strength;
-uniform float u_chroma_fade_low;
-uniform float u_chroma_fade_high;
+uniform float u_chroma_fade_region;
+uniform float u_chroma_fade_center;
+uniform float u_chroma_fade_softness;
 uniform float u_shoulder;
 uniform float u_tone_center;
 uniform float u_curve_strength;
@@ -184,7 +185,10 @@ vec3 applyLook(vec3 srgb) {
     float tone_base = pivotedLogitCurve(luma, pivot, tone_slope);
     float tone = applyLiftMidtoneGain(tone_base, u_lift, u_midtone, u_gain);
 
-    float chroma_fade = smoothstep(u_chroma_fade_low, u_chroma_fade_high, luma);
+    float chroma_fade_low = u_chroma_fade_center - u_chroma_fade_softness * 0.5;
+    float chroma_fade_high = u_chroma_fade_center + u_chroma_fade_softness * 0.5;
+    float chroma_fade_ramp = smoothstep(chroma_fade_low, chroma_fade_high, luma);
+    float chroma_fade = mix(chroma_fade_ramp, 1.0 - chroma_fade_ramp, step(0.5, u_chroma_fade_region));
     float chroma_base = mix(chroma, chroma * chroma_fade, u_chroma_fade_strength);
 
     vec2 ab_base = vec2(0.0);
