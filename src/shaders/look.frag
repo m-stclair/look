@@ -160,9 +160,9 @@ vec3 applyLook(vec3 srgb) {
     }
 
     float tint_side = clamp(logL - u_tint_center, -2.0, 2.0);
-    float tint_magnitude = abs(tint_side) * u_tint_strength;
-    vec3 tint_endpoint = tint_side < 0.0 ? u_tint_low : u_tint_high;
-    vec3 tint_vec = tint_endpoint * tint_magnitude;
+    vec3 tint_axis = u_tint_high - u_tint_low;
+    vec3 tint_dir = length(tint_axis) > 1e-6 ? normalize(tint_axis) : vec3(0.0);
+    vec3 tint_vec = tint_dir * tint_side * u_tint_strength;
 
     float chroma_out = length(ab_base);
     float hue_out = atan(ab_base.y, ab_base.x);

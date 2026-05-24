@@ -63,6 +63,16 @@ test("look shader includes gamma and exposure shaping helpers", async () => {
 });
 
 
+test("look shader applies tint as a normalized signed RGB axis", async () => {
+  const source = await readFile(shaderPath, "utf8");
+  assert.match(source, /vec3\s+tint_axis\s*=\s*u_tint_high\s*-\s*u_tint_low/);
+  assert.match(source, /vec3\s+tint_dir\s*=\s*length\(tint_axis\)\s*>\s*1e-6\s*\?\s*normalize\(tint_axis\)\s*:\s*vec3\(0\.0\)/);
+  assert.match(source, /vec3\s+tint_vec\s*=\s*tint_dir\s*\*\s*tint_side\s*\*\s*u_tint_strength/);
+  assert.match(source, /oklchToSrgb\(lch_out\)\s*\+\s*tint_vec/);
+  assert.doesNotMatch(source, /ab_tinted/);
+});
+
+
 test("view composite shader handles before/after compare in a final pass", async () => {
   const source = await readFile(compositeShaderPath, "utf8");
   assert.match(source, /uniform\s+sampler2D\s+u_image/);

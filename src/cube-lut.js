@@ -37,12 +37,13 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const abBase = chromaBase > 1e-5 ? scale2(normalize2(ab), chromaBase) : [0, 0];
 
   const tintSide = clamp(logL - tintCenter, -2, 2);
-  const tintMagnitude = Math.abs(tintSide) * config.tintStrength;
-  const tintEndpoint = lookTintFromHueDegrees(tintSide < 0 ? config.tintLowHue : config.tintHighHue);
-  const tintVec = tintEndpoint.map(channel => channel * tintMagnitude);
+  const tintLow = lookTintFromHueDegrees(config.tintLowHue);
+  const tintHigh = lookTintFromHueDegrees(config.tintHighHue);
+  const tintAxis = normalize3(subtract3(tintHigh, tintLow));
 
   const chromaOut = length2(abBase);
   const hueOut = Math.atan2(abBase[1], abBase[0]);
+  const tintVec = scale3(tintAxis, tintSide * config.tintStrength);
   const rgbOut = oklchToSrgb([tone, chromaOut, hueOut]).map((channel, index) => channel + tintVec[index]);
   return rgbOut.map(channel => clamp(channel, 0, 1));
 }
@@ -178,6 +179,23 @@ function normalize2(vector) {
 
 function scale2(vector, scale) {
   return [vector[0] * scale, vector[1] * scale];
+}
+
+function length3(vector) {
+  return Math.hypot(vector[0], vector[1], vector[2]);
+}
+
+function normalize3(vector) {
+  const length = length3(vector);
+  return length > 1e-6 ? [vector[0] / length, vector[1] / length, vector[2] / length] : [0, 0, 0];
+}
+
+function subtract3(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function scale3(vector, scale) {
+  return [vector[0] * scale, vector[1] * scale, vector[2] * scale];
 }
 
 function downloadText(filename, text, type) {

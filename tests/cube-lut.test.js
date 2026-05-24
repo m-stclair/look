@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CONFIG } from "../src/config.js";
+import { lookTintFromHueDegrees } from "../src/color-utils.js";
 import { applyLookToSrgb, cubeTitle, generateCubeLut, normalizeLutSize } from "../src/cube-lut.js";
 
 function dataRows(cubeText) {
@@ -86,6 +87,34 @@ test("tint axis center controls the bipolar tint crossover", () => {
 });
 
 
+test("tint uses a normalized signed RGB axis from the endpoint hues", () => {
+  // Neutral sRGB value whose OKLab L is 0.5, so tintAxisCenter -2 gives tintSide +1.
+  const input = [0.3885728590463344, 0.3885728590463344, 0.3885728590463344];
+  const strength = 0.05;
+  const config = {
+    tintStrength: strength,
+    tintLowHue: 240,
+    tintHighHue: 60,
+    tintAxisCenter: -2,
+    curveStrength: 0
+  };
+
+  const neutral = applyLookToSrgb(input, {...config, tintStrength: 0});
+  const tinted = applyLookToSrgb(input, config);
+  const delta = tinted.map((channel, index) => channel - neutral[index]);
+  const deltaLength = Math.hypot(...delta);
+
+  const low = lookTintFromHueDegrees(config.tintLowHue);
+  const high = lookTintFromHueDegrees(config.tintHighHue);
+  const axis = high.map((channel, index) => channel - low[index]);
+  const axisLength = Math.hypot(...axis);
+  const expectedDirection = axis.map(channel => channel / axisLength);
+
+  assertClose(deltaLength, strength, 1e-9);
+  delta.forEach((channel, index) => assertClose(channel / deltaLength, expectedDirection[index], 1e-9));
+});
+
+
 test("normalizeLutSize accepts only Cube-compatible sizes", () => {
   assert.equal(normalizeLutSize("33"), 33);
   assert.throws(() => normalizeLutSize(1), /2 to 256/);
@@ -98,10 +127,10 @@ test("cubeTitle strips characters that break quoted titles", () => {
 });
 
 
-test("low and high tint hues are independently controlled across the crossover", () => {
+test("low and high tint hues define one shared signed axis", () => {
   const lowInput = [0.08, 0.08, 0.08];
   const highInput = [0.8, 0.8, 0.8];
-  const base = {tintStrength: 0.25, tintAxisCenter: -1, tintLowHue: 240, tintHighHue: 60};
+  const base = {tintStrength: 0.05, tintAxisCenter: -1, tintLowHue: 240, tintHighHue: 60, curveStrength: 0};
 
   const lowA = applyLookToSrgb(lowInput, base);
   const lowB = applyLookToSrgb(lowInput, {...base, tintLowHue: 120});
@@ -109,5 +138,5 @@ test("low and high tint hues are independently controlled across the crossover",
   const highB = applyLookToSrgb(highInput, {...base, tintLowHue: 120});
 
   assert.ok(lowA.some((channel, index) => Math.abs(channel - lowB[index]) > 1e-4));
-  highA.forEach((channel, index) => assertClose(channel, highB[index], 1e-12));
+  assert.ok(highA.some((channel, index) => Math.abs(channel - highB[index]) > 1e-4));
 });
