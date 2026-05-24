@@ -9,7 +9,7 @@ import {
   uploadRgbaFloatTexture
 } from "./gl/textures.js";
 import { renderViewComposite, VIEW_COMPOSITE_UNIFORM_NAMES } from "./gl/view-composite-renderer.js";
-import { normalizeConfig } from "./config.js";
+import { cloneDefaultConfig } from "./config.js";
 import {
   createCubeInputPixels,
   createCubeLutText,
@@ -80,7 +80,7 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
   const processedTarget = {width: 0, height: 0};
   let processedTextureFormat = resolveRenderTextureFormat(gl);
   const compare = {enabled: false, split: 0.5};
-  let config = normalizeConfig();
+  let config = cloneDefaultConfig();
   let imageSource = null;
   let imageSize = {width: canvas.width || 1, height: canvas.height || 1};
   let view = defaultView();
@@ -104,7 +104,7 @@ export function createLookRenderer(canvas, {vertexSource, fragmentSource, viewCo
   }
 
   function setConfig(nextConfig) {
-    config = normalizeConfig(nextConfig);
+    config = nextConfig || config;
     render();
   }
 

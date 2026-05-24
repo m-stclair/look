@@ -1,4 +1,4 @@
-import { CHROMA_MAP_CONTROL_KEYS, normalizeConfig, resetChromaMapConfig } from "../config.js";
+import { CHROMA_MAP_CONTROL_KEYS, resetChromaMapConfig } from "../config.js";
 import { createDockRange } from "./dom-controls.js";
 import { beginFrame, drawChromaHistogramUnderlay, drawChromaLegend, drawChromaPercentileIndicator, drawCurve, drawFrame, frameFromClientRect, line, plotRect, sampleCurve } from "./canvas.js";
 import {
@@ -80,7 +80,7 @@ function histogramReferenceId(value) {
 }
 
 export function chromaGraphMetricsSignature(config, handleState = {}) {
-  const normalized = normalizeConfig(config);
+  const normalized = config || {};
   const parts = CHROMA_GRAPH_METRIC_KEYS.map(key => `${key}:${normalized[key]}`);
   parts.push(`hist:${histogramReferenceId(handleState.sourceChromaHistogram)}`);
   parts.push(`histLength:${handleState.sourceChromaHistogram?.length || 0}`);
@@ -181,7 +181,7 @@ export function createChromaMapControls(canvas, bindings) {
   document.addEventListener("curve-preview-zoom-request", handleExternalZoomRequest);
 
   resetButton.addEventListener("click", () => {
-    const nextConfig = resetChromaMapConfig(normalizeConfig(bindings.getConfig()));
+    const nextConfig = resetChromaMapConfig({...bindings.getConfig()});
     const patch = Object.fromEntries(CHROMA_MAP_CONTROL_KEYS.map(key => [key, nextConfig[key]]));
     bindings.setConfigValues?.(patch);
   });
@@ -260,7 +260,7 @@ export function createChromaMapControls(canvas, bindings) {
   };
 
   function sync(nextConfig) {
-    const config = normalizeConfig(nextConfig);
+    const config = nextConfig || {};
     for (const control of detailControls) {
       if (control.sync) {
         control.sync(config);
@@ -758,7 +758,7 @@ export function computeChromaGraphMetrics(config, handleState = {}) {
 }
 
 function getCachedChromaCurves(canvas, config, yMax) {
-  const normalized = normalizeConfig(config);
+  const normalized = config || {};
   const signature = [
     `yMax:${yMax}`,
     ...CHROMA_GRAPH_METRIC_KEYS.map(key => `${key}:${normalized[key]}`)

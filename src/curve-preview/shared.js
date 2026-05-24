@@ -1,4 +1,4 @@
-import { CONTROL_GROUPS, DEFAULT_CONFIG, normalizeConfig, groupControlDefinitions } from "../config.js";
+import { CONTROL_GROUPS, DEFAULT_CONFIG, groupControlDefinitions } from "../config.js";
 
 export const SHADOW_LOW = 0.18;
 export const SHADOW_HIGH = 0.35;
@@ -29,7 +29,7 @@ export const TONAL_BALANCE_HANDLES = Object.freeze([
 export const CONTROL_DEFINITIONS = new Map(CONTROL_GROUPS.flatMap(group => groupControlDefinitions(group).map(control => [control.key, control])));
 
 
-function configScalar(rawConfig, key) {
+export function configScalar(rawConfig, key) {
   return rawConfig && Object.prototype.hasOwnProperty.call(rawConfig, key)
     ? rawConfig[key]
     : DEFAULT_CONFIG[key];
@@ -78,21 +78,23 @@ export function normalizeSourceHistograms(nextHistogram) {
 }
 
 export function lumaToneBaseSample(inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const luma = adjustedLumaFromInputLuma(inputLuma, config);
-  const pivot = effectiveTonePivotLuma(config);
-  const slope = toneSlopeFromControls(config.curveStrength, config.toneShoulder);
+  const luma = adjustedLumaFromInputLuma(inputLuma, rawConfig);
+  const pivot = effectiveTonePivotLuma(rawConfig);
+  const slope = toneSlopeFromControls(configScalar(rawConfig, "curveStrength"), configScalar(rawConfig, "toneShoulder"));
   return pivotedLogitCurve(luma, pivot, slope);
 }
 
 export function lumaCurveSample(inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return applyLiftMidtoneGain(lumaToneBaseSample(inputLuma, config), config.lift, config.midtone, config.gain);
+  return applyLiftMidtoneGain(
+    lumaToneBaseSample(inputLuma, rawConfig),
+    configScalar(rawConfig, "lift"),
+    configScalar(rawConfig, "midtone"),
+    configScalar(rawConfig, "gain")
+  );
 }
 
 export function tonalBalanceHandleValue(key, inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return clamp01(lumaToneBaseSample(inputLuma, config) + (config[key] || 0));
+  return clamp01(lumaToneBaseSample(inputLuma, rawConfig) + (configScalar(rawConfig, key) || 0));
 }
 
 
@@ -231,16 +233,14 @@ export function chromaGammaHandleChromaForDomain(domainMax) {
 }
 
 export function chromaPlacementInputChroma(rawConfig = {}, targetChroma = CHROMA_PLACEMENT_CHROMA) {
-  const config = normalizeConfig(rawConfig);
-  const gamma = Math.max(config.chromaGamma, 1e-4);
-  const exposureScale = Math.max(Math.pow(2, config.chromaExposure), 1e-9);
+  const gamma = Math.max(configScalar(rawConfig, "chromaGamma"), 1e-4);
+  const exposureScale = Math.max(Math.pow(2, configScalar(rawConfig, "chromaExposure")), 1e-9);
   const target = clamp(targetChroma, 1e-6, CHROMA_PREVIEW_MAX);
   return clamp(Math.pow(target, gamma) / exposureScale, 0, CHROMA_PREVIEW_MAX);
 }
 
 export function chromaExposureValueFromPlacementInputChroma(inputChroma, rawConfig = {}, targetChroma = CHROMA_PLACEMENT_CHROMA) {
-  const config = normalizeConfig(rawConfig);
-  const gamma = Math.max(config.chromaGamma, 1e-4);
+  const gamma = Math.max(configScalar(rawConfig, "chromaGamma"), 1e-4);
   const target = clamp(targetChroma, 1e-6, CHROMA_PREVIEW_MAX);
   const targetPreGamma = Math.pow(target, gamma);
   const safeInput = Math.max(1e-6, clamp(inputChroma, 0, CHROMA_PREVIEW_MAX));
@@ -260,9 +260,8 @@ export function chromaGammaValueFromVerticalDrag(startValue, deltaClientY, plotH
 }
 
 export function chromaFadeWindow(rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const center = sanitizeControlValue("chromaFadeCenter", config.chromaFadeCenter);
-  const softness = sanitizeControlValue("chromaFadeSoftness", config.chromaFadeSoftness);
+  const center = sanitizeControlValue("chromaFadeCenter", configScalar(rawConfig, "chromaFadeCenter"));
+  const softness = sanitizeControlValue("chromaFadeSoftness", configScalar(rawConfig, "chromaFadeSoftness"));
   const half = softness / 2;
   return {
     center,
@@ -273,10 +272,9 @@ export function chromaFadeWindow(rawConfig = {}) {
 }
 
 export function chromaFadeMask(adjustedLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const {low, high} = chromaFadeWindow(config);
+  const {low, high} = chromaFadeWindow(rawConfig);
   const ramp = smoothstep(low, high, adjustedLuma);
-  return config.chromaFadeRegion >= 0.5 ? 1 - ramp : ramp;
+  return configScalar(rawConfig, "chromaFadeRegion") >= 0.5 ? 1 - ramp : ramp;
 }
 
 export function chromaFadeRegionLabel(value) {
@@ -336,9 +334,8 @@ export function adjustedLumaFromInputLuma(inputLuma, rawConfig = {}) {
 }
 
 export function inputLumaFromAdjustedLuma(adjustedLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const gamma = Math.max(config.gamma, 1e-4);
-  const exposureScale = Math.max(Math.pow(2, config.exposure), 1e-9);
+  const gamma = Math.max(configScalar(rawConfig, "gamma"), 1e-4);
+  const exposureScale = Math.max(Math.pow(2, configScalar(rawConfig, "exposure")), 1e-9);
   return clamp01(Math.pow(clamp01(adjustedLuma), gamma) / exposureScale);
 }
 
@@ -349,8 +346,7 @@ export function exposurePlacementInputLuma(rawConfig = {}) {
 }
 
 export function exposureValueFromPlacementInputLuma(inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const gamma = Math.max(config.gamma, 1e-4);
+  const gamma = Math.max(configScalar(rawConfig, "gamma"), 1e-4);
   const targetPreGamma = Math.pow(EXPOSURE_PLACEMENT_LUMA, gamma);
   const safeInput = Math.max(1e-6, clamp01(inputLuma));
   return sanitizeControlValue("exposure", Math.log2(targetPreGamma / safeInput));
@@ -425,8 +421,7 @@ export function baseTonePivotInputLuma(rawConfig = {}) {
 }
 
 export function tonePivotInputLuma(rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return clamp01(baseTonePivotInputLuma(config) + config.tonePivotNudge);
+  return clamp01(baseTonePivotInputLuma(rawConfig) + configScalar(rawConfig, "tonePivotNudge"));
 }
 
 export function effectiveTonePivotLuma(rawConfig = {}) {
@@ -438,8 +433,7 @@ export function effectiveToneCenter(rawConfig = {}) {
 }
 
 export function tonePivotNudgeFromInputLuma(inputLuma, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return sanitizeControlValue("tonePivotNudge", clamp01(inputLuma) - baseTonePivotInputLuma(config));
+  return sanitizeControlValue("tonePivotNudge", clamp01(inputLuma) - baseTonePivotInputLuma(rawConfig));
 }
 
 export function tonePivotNudgeFromSlopeHandleInputLuma(inputLuma, rawConfig = {}) {

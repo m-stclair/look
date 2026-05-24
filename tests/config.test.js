@@ -9,7 +9,6 @@ import {
   TONE_MAP_CONTROL_KEYS,
   cloneDefaultConfig,
   groupControlDefinitions,
-  normalizeConfig,
   resetChromaMapConfig,
   resetControlGroup,
   resetHueWindowConfig,
@@ -43,6 +42,10 @@ const expectedRanges = new Map([
   ["tintAxisCenter", {min: 0, max: 1, step: 0.01}],
   ["tintStrength", {min: 0, max: 1, step: 0.01}]
 ]);
+
+function configWith(patch = {}) {
+  return {...DEFAULT_CONFIG, ...patch};
+}
 
 test("cloneDefaultConfig returns a mutable copy", () => {
   const config = cloneDefaultConfig();
@@ -110,22 +113,8 @@ test("logistic controls use human-facing labels", () => {
 });
 
 
-test("normalizeConfig fills missing values from defaults", () => {
-  assert.equal(normalizeConfig({exposure: 2}).tonePivotNudge, DEFAULT_CONFIG.tonePivotNudge);
-  assert.equal(normalizeConfig({exposure: 2}).exposure, 2);
-  assert.equal(normalizeConfig({gamma: 1.5}).gamma, 1.5);
-});
-
-
-
-test("normalizeConfig migrates legacy tint crossover stops to luma", () => {
-  assert.equal(normalizeConfig({tintAxisCenter: -1}).tintAxisCenter, 0.5);
-  assert.equal(normalizeConfig({tintAxisCenter: -3}).tintAxisCenter, 0.125);
-  assert.equal(normalizeConfig({tintAxisCenter: 0.25}).tintAxisCenter, 0.25);
-});
-
 test("resetControlGroup restores only the selected group", () => {
-  const config = normalizeConfig({
+  const config = configWith({
     gamma: 1.4,
     exposure: 3,
     curveStrength: 0.2,
@@ -144,7 +133,7 @@ test("resetControlGroup restores only the selected group", () => {
 
 
 test("resetControlGroup restores hidden tone nudge with the visible tone controls", () => {
-  const config = normalizeConfig({curveStrength: 0.7, toneShoulder: 5, tonePivotNudge: 0.25});
+  const config = configWith({curveStrength: 0.7, toneShoulder: 5, tonePivotNudge: 0.25});
   resetControlGroup(config, "tone");
   assert.equal(config.curveStrength, DEFAULT_CONFIG.curveStrength);
   assert.equal(config.toneShoulder, DEFAULT_CONFIG.toneShoulder);
@@ -169,7 +158,7 @@ test("tone map control keys include graph-owned visible and hidden parameters", 
 });
 
 test("resetToneMapConfig restores all graph-owned tone map parameters", () => {
-  const config = normalizeConfig({
+  const config = configWith({
     exposure: 2,
     gamma: 1.7,
     curveStrength: 0.8,
@@ -207,7 +196,7 @@ test("chroma map control keys include graph-owned chroma parameters", () => {
 });
 
 test("resetChromaMapConfig restores only chroma map parameters", () => {
-  const config = normalizeConfig({
+  const config = configWith({
     chromaExposure: 1.5,
     chromaGamma: 1.7,
     chromaFadeStrength: 0.8,
@@ -236,7 +225,7 @@ test("hue window control keys cover the selective chroma notch", () => {
 });
 
 test("resetHueWindowConfig restores only hue window parameters", () => {
-  const config = normalizeConfig({
+  const config = configWith({
     hueWindowCenter: 125,
     hueWindowChroma: -0.6,
     hueWindowWidth: 90,
@@ -263,7 +252,7 @@ test("tint control keys cover tint parameters", () => {
 });
 
 test("resetTintConfig restores only tint parameters", () => {
-  const config = normalizeConfig({
+  const config = configWith({
     tintStrength: 0.8,
     tintLowHue: 220,
     tintHighHue: 40,

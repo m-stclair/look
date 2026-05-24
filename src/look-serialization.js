@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, normalizeConfig } from "./config.js";
+import { DEFAULT_CONFIG } from "./config.js";
 
 export const LOOK_VERSION = 1;
 
@@ -10,10 +10,9 @@ export function sanitizeLookName(name, fallback = "Untitled Look") {
 }
 
 export function serializeLookConfig(config = {}) {
-  const normalized = normalizeConfig(config);
   const serialized = {};
   for (const key of LOOK_CONFIG_KEYS) {
-    const value = Number(normalized[key]);
+    const value = Number(config?.[key]);
     serialized[key] = Number.isFinite(value) ? value : DEFAULT_CONFIG[key];
   }
   return serialized;

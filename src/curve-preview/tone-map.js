@@ -1,4 +1,4 @@
-import { TONE_MAP_CONTROL_KEYS, normalizeConfig, resetToneMapConfig } from "../config.js";
+import { TONE_MAP_CONTROL_KEYS, resetToneMapConfig } from "../config.js";
 import { createDockRange } from "./dom-controls.js";
 import { beginFrame, drawCurve, drawFrame, drawHistogramUnderlay, frameFromClientRect, line, plotRect, sampleCurve } from "./canvas.js";
 import {
@@ -521,7 +521,7 @@ export function createToneMapControls(canvas, bindings) {
   document.addEventListener("curve-preview-zoom-request", handleExternalZoomRequest);
 
   resetButton.addEventListener("click", () => {
-    const nextConfig = resetToneMapConfig(normalizeConfig(bindings.getConfig()));
+    const nextConfig = resetToneMapConfig({...bindings.getConfig()});
     const patch = Object.fromEntries(TONE_MAP_CONTROL_KEYS.map(key => [key, nextConfig[key]]));
     bindings.setConfigValues?.(patch);
   });
@@ -601,7 +601,7 @@ export function createToneMapControls(canvas, bindings) {
   };
 
   function sync(nextConfig) {
-    const config = normalizeConfig(nextConfig);
+    const config = nextConfig || {};
     for (const control of detailControls) {
       control.input.value = String(config[control.key]);
       control.value.textContent = formatCompact(config[control.key]);

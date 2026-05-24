@@ -1,17 +1,16 @@
-import { HUE_WINDOW_CONTROL_KEYS, normalizeConfig, resetHueWindowConfig } from "../config.js";
+import { HUE_WINDOW_CONTROL_KEYS, resetHueWindowConfig } from "../config.js";
 import { lookTintFromHueDegrees, normalizeHueDegrees } from "../color-utils.js";
 import { createDockRange } from "./dom-controls.js";
 import { beginFrame, drawFrame, frameFromClientRect, line, plotRect } from "./canvas.js";
-import { clamp, clamp01, devicePixelRatioSafe, formatCompact, formatSigned, mix } from "./shared.js";
+import { clamp, clamp01, configScalar, devicePixelRatioSafe, formatCompact, formatSigned, mix } from "./shared.js";
 
 const HUE_WINDOW_HANDLE_KEY = "hueWindowHandle";
 const HUE_WINDOW_CURVE_SAMPLES = 144;
 
 export function hueWindowMaskForHue(hueDegrees, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  const center = normalizeHueDegrees(config.hueWindowCenter);
-  const width = Math.max(config.hueWindowWidth || 0, 0);
-  const softness = clamp01(config.hueWindowSoftness || 0);
+  const center = normalizeHueDegrees(configScalar(rawConfig, "hueWindowCenter"));
+  const width = Math.max(configScalar(rawConfig, "hueWindowWidth") || 0, 0);
+  const softness = clamp01(configScalar(rawConfig, "hueWindowSoftness") || 0);
   const coreHalf = width * 0.5;
   const feather = Math.max(0.25, coreHalf * softness);
   const distance = hueDistanceDegrees(hueDegrees, center);
@@ -19,8 +18,7 @@ export function hueWindowMaskForHue(hueDegrees, rawConfig = {}) {
 }
 
 export function hueWindowChromaScaleForHue(hueDegrees, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
-  return Math.max(0, 1 + config.hueWindowChroma * hueWindowMaskForHue(hueDegrees, config));
+  return Math.max(0, 1 + configScalar(rawConfig, "hueWindowChroma") * hueWindowMaskForHue(hueDegrees, rawConfig));
 }
 
 export function hueWindowCenterFromHorizontalPosition(clientX, left, width) {
@@ -37,7 +35,7 @@ export function drawHueWindowPreview(canvas, config, handleState = {}) {
   const frame = beginFrame(canvas);
   if (!frame) return;
 
-  const normalized = normalizeConfig(config);
+  const normalized = config || {};
   const activeKey = typeof handleState.activeHueWindowHandle === "string" ? handleState.activeHueWindowHandle : handleState.activeHueWindowHandle?.key || null;
   const hoverKey = handleState.hoverHueWindowHandle || null;
 
@@ -90,13 +88,13 @@ export function createHueWindowControls(canvas, bindings) {
 
   const sidecar = document.createElement("div");
   sidecar.className = "hue-window-sidecar";
-  const widthControl = createDockRange("Width", "hueWindowWidth", 1, 180, 0.5);
+  const widthControl = createDockRange("Width", "hueWindowWidth", 1, 300, 0.5);
   const softnessControl = createDockRange("Soft", "hueWindowSoftness", 0, 1, 0.01);
   sidecar.append(widthControl.wrapper, softnessControl.wrapper);
   card.append(readouts, sidecar);
 
   resetButton.addEventListener("click", () => {
-    const nextConfig = resetHueWindowConfig(normalizeConfig(bindings.getConfig()));
+    const nextConfig = resetHueWindowConfig({...bindings.getConfig()});
     const patch = Object.fromEntries(HUE_WINDOW_CONTROL_KEYS.map(key => [key, nextConfig[key]]));
     bindings.setConfigValues?.(patch);
   });
@@ -122,7 +120,7 @@ export function createHueWindowControls(canvas, bindings) {
   };
 
   function sync(nextConfig) {
-    const config = normalizeConfig(nextConfig);
+    const config = nextConfig || {};
     widthControl.input.value = String(config.hueWindowWidth);
     widthControl.value.textContent = `${Math.round(config.hueWindowWidth)}°`;
     softnessControl.input.value = String(config.hueWindowSoftness);
@@ -181,7 +179,7 @@ export function bindHueWindowHandles(canvas, bindings) {
     const dpr = devicePixelRatioSafe();
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
-    const point = hueWindowHandlePoint(frame, normalizeConfig(bindings.getConfig()));
+    const point = hueWindowHandlePoint(frame, bindings.getConfig());
     return Math.hypot(localX - point.x, localY - point.y) <= 16 * dpr;
   }
 
@@ -349,11 +347,10 @@ function drawHueWindowHandle(frame, config, {active, hover}) {
 }
 
 function hueWindowHandlePoint(frame, rawConfig = {}) {
-  const config = normalizeConfig(rawConfig);
   const plot = plotRect(frame);
   return {
-    x: plot.x + clamp01(config.hueWindowCenter / 360) * plot.w,
-    y: plot.y + (1 - (config.hueWindowChroma + 1) / 2) * plot.h
+    x: plot.x + clamp01(configScalar(rawConfig, "hueWindowCenter") / 360) * plot.w,
+    y: plot.y + (1 - (configScalar(rawConfig, "hueWindowChroma") + 1) / 2) * plot.h
   };
 }
 

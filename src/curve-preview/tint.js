@@ -1,4 +1,4 @@
-import { TINT_CONTROL_KEYS, normalizeConfig, resetTintConfig } from "../config.js";
+import { TINT_CONTROL_KEYS, resetTintConfig } from "../config.js";
 import { hueDeltaDegrees, lookTintFromHueDegrees, normalizeHueDegrees } from "../color-utils.js";
 import { createDockRange } from "./dom-controls.js";
 import { beginFrame, drawFrame, frameFromClientRect, line, plotRect } from "./canvas.js";
@@ -23,7 +23,7 @@ export function drawTintPreview(canvas, config, handleState = {}) {
   const hoverKey = handleState.hoverTintHandle || null;
   const tintLinked = handleState.tintLinked !== false;
   const tintStrengthLinked = handleState.tintStrengthLinked !== false;
-  const normalized = normalizeConfig(config);
+  const normalized = config || {};
 
   drawFrame(frame, {yMax: 1, labels: false});
 
@@ -84,7 +84,7 @@ export function createTintControls(canvas, bindings) {
   const title = header?.querySelector?.("h2");
   if (title) title.textContent = "Tint";
 
-  const initialConfig = normalizeConfig(bindings.getConfig());
+  const initialConfig = bindings.getConfig();
   const state = {
     details: false,
     linked: isApproximatelyOpposed(initialConfig),
@@ -168,7 +168,7 @@ export function createTintControls(canvas, bindings) {
     state.strengthLinked = true;
     state.rotation = TINT_ROTATION_DEFAULT;
     state.strengthOffset = 0;
-    const nextConfig = resetTintConfig(normalizeConfig(bindings.getConfig()));
+    const nextConfig = resetTintConfig({...bindings.getConfig()});
     const patch = Object.fromEntries(TINT_CONTROL_KEYS.map(key => [key, nextConfig[key]]));
     bindings.setConfigValues?.(patch);
   });
@@ -190,7 +190,7 @@ export function createTintControls(canvas, bindings) {
   strengthLinkButton.addEventListener("click", toggleStrengthLinked);
 
   snapButton.addEventListener("click", () => {
-    const config = normalizeConfig(bindings.getConfig());
+    const config = bindings.getConfig();
     state.linked = true;
     state.rotation = TINT_ROTATION_DEFAULT;
     bindings.setConfigValues?.({
@@ -274,19 +274,19 @@ export function createTintControls(canvas, bindings) {
 
   function setRotation(value) {
     state.rotation = normalizeHueDegrees(value);
-    const config = normalizeConfig(bindings.getConfig());
+    const config = bindings.getConfig();
     bindings.setConfigValues?.({
       tintLowHue: normalizeHueDegrees(config.tintHighHue + state.rotation)
     });
   }
 
   function currentRotation() {
-    const config = normalizeConfig(bindings.getConfig());
+    const config = bindings.getConfig();
     return hueDeltaDegrees(config.tintHighHue, config.tintLowHue);
   }
 
   function currentStrengthOffset() {
-    return tintStrengthOffset(normalizeConfig(bindings.getConfig()));
+    return tintStrengthOffset(bindings.getConfig());
   }
 
   function syncExpansion() {
@@ -296,7 +296,7 @@ export function createTintControls(canvas, bindings) {
   }
 
   function sync(nextConfig) {
-    const config = normalizeConfig(nextConfig);
+    const config = nextConfig || {};
     state.rotation = currentRotationFromConfig(config);
     if (state.strengthLinked) state.strengthOffset = tintStrengthOffset(config);
 
@@ -343,7 +343,7 @@ export function bindTintHandles(canvas, bindings) {
     const dpr = devicePixelRatioSafe();
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
-    const config = normalizeConfig(bindings.getConfig());
+    const config = bindings.getConfig();
     let nearest = null;
 
     for (const key of TINT_HANDLE_KEYS) {
@@ -462,7 +462,7 @@ export function bindTintHandles(canvas, bindings) {
     const dpr = devicePixelRatioSafe();
     const localX = (clientX - rect.left) * dpr;
     const localY = (clientY - rect.top) * dpr;
-    const config = normalizeConfig(bindings.getConfig());
+    const config = bindings.getConfig();
     const candidates = [
       {key: TINT_HUE_LINK_CONTROL_KEY, box: tintHueLinkControlBox(frame, config)},
       {key: TINT_STRENGTH_LINK_CONTROL_KEY, box: tintStrengthLinkControlBox(frame, config)}

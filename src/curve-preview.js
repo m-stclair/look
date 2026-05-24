@@ -1,4 +1,4 @@
-import { CHROMA_MAP_CONTROL_KEYS, HUE_WINDOW_CONTROL_KEYS, TINT_CONTROL_KEYS, TONE_MAP_CONTROL_KEYS, normalizeConfig } from "./config.js";
+import { CHROMA_MAP_CONTROL_KEYS, HUE_WINDOW_CONTROL_KEYS, TINT_CONTROL_KEYS, TONE_MAP_CONTROL_KEYS, cloneDefaultConfig } from "./config.js";
 import { createPreviewCard } from "./curve-preview/canvas.js";
 import { createChromaMapControls, bindChromaMapHandles, computeChromaGraphMetrics, drawChromaPreview } from "./curve-preview/chroma-map.js";
 import { createHueWindowControls, bindHueWindowHandles, drawHueWindowPreview } from "./curve-preview/hue-window.js";
@@ -63,7 +63,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   tintCanvas.classList.add("tint-curve-canvas");
   tintCanvas.setAttribute("aria-label", "Tint: drag low or high handle to set hue (X) and strength (Y); drag C to set crossover; use graph locks to link hue rotation or tint strength");
 
-  let config = normalizeConfig(initialConfig);
+  let config = initialConfig || cloneDefaultConfig();
   let sourceHistogram = null;
   let sourceChromaHistogram = null;
   let sourceChromaByLuma = null;
@@ -92,21 +92,20 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
 
   function setConfigValues(patch) {
     const previousConfig = config;
-    const nextConfig = normalizeConfig({...config});
+    const nextConfig = {...config};
     for (const [key, value] of Object.entries(patch || {})) {
       nextConfig[key] = sanitizeControlValue(key, value);
     }
-    const normalizedNextConfig = normalizeConfig(nextConfig);
-    const changedKeys = changedConfigKeys(previousConfig, normalizedNextConfig);
+    const changedKeys = changedConfigKeys(previousConfig, nextConfig);
     if (!changedKeys.length) return;
 
-    config = normalizedNextConfig;
-    toneControls?.sync(normalizedNextConfig);
-    chromaControls?.sync(normalizedNextConfig);
-    hueWindowControls?.sync(normalizedNextConfig);
-    tintControls?.sync(normalizedNextConfig);
-    scheduleRender(normalizedNextConfig, previewScopesForConfigKeys(changedKeys));
-    options.onConfigChange?.(normalizedNextConfig);
+    config = nextConfig;
+    toneControls?.sync(nextConfig);
+    chromaControls?.sync(nextConfig);
+    hueWindowControls?.sync(nextConfig);
+    tintControls?.sync(nextConfig);
+    scheduleRender(nextConfig, previewScopesForConfigKeys(changedKeys));
+    options.onConfigChange?.(nextConfig);
   }
 
   const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(entries => {
@@ -261,7 +260,7 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   }
 
   function scheduleRender(nextConfig = config, scopes = null) {
-    config = normalizeConfig(nextConfig);
+    config = nextConfig || config;
     markDirty(scopes);
     if (!hasDirtyPreview()) return;
     if (rafId) return;
@@ -272,15 +271,14 @@ export function createCurvePreviews(root, initialConfig, options = {}) {
   }
 
   function renderConfig(nextConfig = config) {
-    const normalized = normalizeConfig(nextConfig);
-    const changedKeys = changedConfigKeys(config, normalized);
-    config = normalized;
+    const changedKeys = changedConfigKeys(config, nextConfig || config);
+    config = nextConfig || config;
     markDirty(previewScopesForConfigKeys(changedKeys));
     scheduleRender(config);
   }
 
   function renderNow(nextConfig = config) {
-    config = normalizeConfig(nextConfig);
+    config = nextConfig || config;
     const shouldDraw = {...dirtyPreviews};
     for (const scope of PREVIEW_SCOPES) dirtyPreviews[scope] = false;
 

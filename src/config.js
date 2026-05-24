@@ -106,7 +106,7 @@ export const CONTROL_GROUPS = Object.freeze([
     controls: [
       {key: "hueWindowCenter", label: "Center Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
       {key: "hueWindowChroma", label: "Chroma", min: -1, max: 1, step: 0.01},
-      {key: "hueWindowWidth", label: "Width", min: 1, max: 180, step: 0.5, suffix: "°"},
+      {key: "hueWindowWidth", label: "Width", min: 1, max: 325, step: 0.5, suffix: "°"},
       {key: "hueWindowSoftness", label: "Softness", min: 0, max: 1, step: 0.01}
     ]
   },
@@ -137,34 +137,6 @@ export function visibleControlDefinitions(group) {
 
 export function cloneDefaultConfig() {
   return {...DEFAULT_CONFIG};
-}
-
-export function normalizeConfig(config = {}) {
-  const normalized = {...DEFAULT_CONFIG, ...config};
-  const legacyStrength = Number(config?.tintStrength);
-  const hasLegacyStrength = Number.isFinite(legacyStrength);
-
-  if (!Object.prototype.hasOwnProperty.call(config, "tintLowStrength") && hasLegacyStrength) {
-    normalized.tintLowStrength = legacyStrength;
-  }
-  if (!Object.prototype.hasOwnProperty.call(config, "tintHighStrength") && hasLegacyStrength) {
-    normalized.tintHighStrength = legacyStrength;
-  }
-
-  normalized.tintAxisCenter = normalizeTintAxisCenter(normalized.tintAxisCenter);
-  normalized.tintStrength = (Number(normalized.tintLowStrength) + Number(normalized.tintHighStrength)) / 2;
-  return normalized;
-}
-
-function normalizeTintAxisCenter(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return DEFAULT_CONFIG.tintAxisCenter;
-  if (numeric < 0) return clamp01(Math.pow(2, numeric));
-  return clamp01(numeric);
-}
-
-function clamp01(value) {
-  return Math.min(1, Math.max(0, value));
 }
 
 export function resetControlGroup(config, groupId) {
