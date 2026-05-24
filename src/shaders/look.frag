@@ -145,22 +145,28 @@ vec3 lumaNeutralDye(vec3 rgb) {
     return m > 1e-6 ? dye / m : vec3(0.0);
 }
 
-vec3 fitRgbPreserveLuma(vec3 rgb, float targetY) {
-    float y = clamp(targetY, 0.0, 1.0);
-    vec3 gray = vec3(y);
-    vec3 delta = rgb - gray;
+float tintHeadroomScale(vec3 base, vec3 delta) {
     float scale = 1.0;
 
-    if (delta.r > 1e-6) scale = min(scale, (1.0 - y) / delta.r);
-    else if (delta.r < -1e-6) scale = min(scale, -y / delta.r);
+    if (delta.r > 1e-6) scale = min(scale, base.r < 1.0 ? (1.0 - base.r) / delta.r : 0.0);
+    else if (delta.r < -1e-6) scale = min(scale, base.r > 0.0 ? -base.r / delta.r : 0.0);
 
-    if (delta.g > 1e-6) scale = min(scale, (1.0 - y) / delta.g);
-    else if (delta.g < -1e-6) scale = min(scale, -y / delta.g);
+    if (delta.g > 1e-6) scale = min(scale, base.g < 1.0 ? (1.0 - base.g) / delta.g : 0.0);
+    else if (delta.g < -1e-6) scale = min(scale, base.g > 0.0 ? -base.g / delta.g : 0.0);
 
-    if (delta.b > 1e-6) scale = min(scale, (1.0 - y) / delta.b);
-    else if (delta.b < -1e-6) scale = min(scale, -y / delta.b);
+    if (delta.b > 1e-6) scale = min(scale, base.b < 1.0 ? (1.0 - base.b) / delta.b : 0.0);
+    else if (delta.b < -1e-6) scale = min(scale, base.b > 0.0 ? -base.b / delta.b : 0.0);
 
-    return gray + delta * clamp(scale, 0.0, 1.0);
+    return clamp(scale, 0.0, 1.0);
+}
+
+vec3 applyLumaNeutralTint(vec3 rgb_base, vec3 tint_vec) {
+    float tint_mag = max(max(abs(tint_vec.r), abs(tint_vec.g)), abs(tint_vec.b));
+    if (tint_mag <= 1e-8) return rgb_base;
+
+    // Keep existing tone/chroma exactly as the base path produced it.
+    // Only scale the added dye when the dye itself would create new gamut damage.
+    return rgb_base + tint_vec * tintHeadroomScale(rgb_base, tint_vec);
 }
 
 vec3 applyLook(vec3 srgb) {
@@ -198,9 +204,7 @@ vec3 applyLook(vec3 srgb) {
     vec3 lch_out = vec3(tone, chroma_out, hue_out);
     vec3 rgb_base = oklchToSrgb(lch_out);
     if (u_tint_strength <= 0.0) return rgb_base;
-    float target_y = dot(clamp(rgb_base, 0.0, 1.0), rgbLuma);
-    vec3 rgb_out = fitRgbPreserveLuma(rgb_base + tint_vec, target_y);
-    return rgb_out;
+    return applyLumaNeutralTint(rgb_base, tint_vec);
 }
 
 void main() {

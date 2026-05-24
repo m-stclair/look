@@ -54,8 +54,7 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   );
   const rgbBase = oklchToSrgb([tone, chromaOut, hueOut]);
   if (config.tintStrength <= 0) return rgbBase.map(channel => clamp(channel, 0, 1));
-  const targetY = dot3(rgbBase.map(channel => clamp(channel, 0, 1)), RGB_LUMA);
-  const rgbOut = fitRgbPreserveLuma(add3(rgbBase, tintVec), targetY);
+  const rgbOut = applyLumaNeutralTint(rgbBase, tintVec);
   return rgbOut.map(channel => clamp(channel, 0, 1));
 }
 
@@ -207,17 +206,25 @@ function lumaNeutralDye(rgb) {
   return maxAbs > 1e-6 ? dye.map(channel => channel / maxAbs) : [0, 0, 0];
 }
 
-function fitRgbPreserveLuma(rgb, targetY) {
-  const y = clamp(targetY, 0, 1);
-  const delta = rgb.map(channel => channel - y);
+function tintHeadroomScale(base, delta) {
   let scale = 1;
 
-  for (const channelDelta of delta) {
-    if (channelDelta > 1e-6) scale = Math.min(scale, (1 - y) / channelDelta);
-    else if (channelDelta < -1e-6) scale = Math.min(scale, -y / channelDelta);
+  for (let index = 0; index < 3; index += 1) {
+    const baseChannel = base[index];
+    const deltaChannel = delta[index];
+    if (deltaChannel > 1e-6) scale = Math.min(scale, baseChannel < 1 ? (1 - baseChannel) / deltaChannel : 0);
+    else if (deltaChannel < -1e-6) scale = Math.min(scale, baseChannel > 0 ? -baseChannel / deltaChannel : 0);
   }
 
-  return delta.map(channelDelta => y + channelDelta * clamp(scale, 0, 1));
+  return clamp(scale, 0, 1);
+}
+
+function applyLumaNeutralTint(rgbBase, tintVec) {
+  const tintMagnitude = Math.max(...tintVec.map(channel => Math.abs(channel)));
+  if (tintMagnitude <= 1e-8) return rgbBase;
+
+  const scale = tintHeadroomScale(rgbBase, tintVec);
+  return add3(rgbBase, scale3(tintVec, scale));
 }
 
 function scale3(vector, scale) {

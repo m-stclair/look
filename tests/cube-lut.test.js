@@ -125,6 +125,25 @@ test("highlight tint uses its own luma-neutral RGB dye", () => {
 });
 
 
+
+
+test("entering the tint path does not refit existing high-chroma output", () => {
+  const config = {
+    chromaExposure: 1,
+    curveStrength: 0,
+    tintAxisCenter: -2,
+    tintLowHue: 240,
+    tintHighHue: 60
+  };
+
+  const untinted = applyLookToSrgb([1, 0, 0], {...config, tintStrength: 0});
+  const nearlyUntinted = applyLookToSrgb([1, 0, 0], {...config, tintStrength: 1e-9});
+
+  nearlyUntinted.forEach((channel, index) => {
+    assertClose(channel, untinted[index], 1e-8);
+  });
+});
+
 test("normalizeLutSize accepts only Cube-compatible sizes", () => {
   assert.equal(normalizeLutSize("33"), 33);
   assert.throws(() => normalizeLutSize(1), /2 to 256/);
