@@ -14,6 +14,8 @@ const DEFAULT_LUT_SIZE = 33;
 const MIN_LUT_SIZE = 2;
 const MAX_LUT_SIZE = 256;
 const PI = Math.PI;
+const RGB_LUMA = [0.2126, 0.7152, 0.0722];
+const TINT_RGB_SCALE = 0.22;
 
 export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const config = normalizeConfig(rawConfig);
@@ -37,14 +39,23 @@ export function applyLookToSrgb(inputRgb, rawConfig = {}) {
   const abBase = chromaBase > 1e-5 ? scale2(normalize2(ab), chromaBase) : [0, 0];
 
   const tintSide = clamp(logL - tintCenter, -2, 2);
+  const tintLowWeight = Math.max(-tintSide, 0);
+  const tintHighWeight = Math.max(tintSide, 0);
   const tintLow = lookTintFromHueDegrees(config.tintLowHue);
   const tintHigh = lookTintFromHueDegrees(config.tintHighHue);
-  const tintAxis = normalize3(subtract3(tintHigh, tintLow));
+  const tintLowDye = lumaNeutralDye(tintLow);
+  const tintHighDye = lumaNeutralDye(tintHigh);
 
   const chromaOut = length2(abBase);
   const hueOut = Math.atan2(abBase[1], abBase[0]);
-  const tintVec = scale3(tintAxis, tintSide * config.tintStrength);
-  const rgbOut = oklchToSrgb([tone, chromaOut, hueOut]).map((channel, index) => channel + tintVec[index]);
+  const tintVec = scale3(
+    add3(scale3(tintLowDye, tintLowWeight), scale3(tintHighDye, tintHighWeight)),
+    config.tintStrength * TINT_RGB_SCALE
+  );
+  const rgbBase = oklchToSrgb([tone, chromaOut, hueOut]);
+  if (config.tintStrength <= 0) return rgbBase.map(channel => clamp(channel, 0, 1));
+  const targetY = dot3(rgbBase.map(channel => clamp(channel, 0, 1)), RGB_LUMA);
+  const rgbOut = fitRgbPreserveLuma(add3(rgbBase, tintVec), targetY);
   return rgbOut.map(channel => clamp(channel, 0, 1));
 }
 
@@ -181,17 +192,32 @@ function scale2(vector, scale) {
   return [vector[0] * scale, vector[1] * scale];
 }
 
-function length3(vector) {
-  return Math.hypot(vector[0], vector[1], vector[2]);
+function dot3(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-function normalize3(vector) {
-  const length = length3(vector);
-  return length > 1e-6 ? [vector[0] / length, vector[1] / length, vector[2] / length] : [0, 0, 0];
+function add3(a, b) {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 }
 
-function subtract3(a, b) {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+function lumaNeutralDye(rgb) {
+  const y = dot3(rgb, RGB_LUMA);
+  const dye = rgb.map(channel => channel - y);
+  const maxAbs = Math.max(...dye.map(channel => Math.abs(channel)));
+  return maxAbs > 1e-6 ? dye.map(channel => channel / maxAbs) : [0, 0, 0];
+}
+
+function fitRgbPreserveLuma(rgb, targetY) {
+  const y = clamp(targetY, 0, 1);
+  const delta = rgb.map(channel => channel - y);
+  let scale = 1;
+
+  for (const channelDelta of delta) {
+    if (channelDelta > 1e-6) scale = Math.min(scale, (1 - y) / channelDelta);
+    else if (channelDelta < -1e-6) scale = Math.min(scale, -y / channelDelta);
+  }
+
+  return delta.map(channelDelta => y + channelDelta * clamp(scale, 0, 1));
 }
 
 function scale3(vector, scale) {

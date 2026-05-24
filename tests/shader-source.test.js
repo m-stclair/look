@@ -63,12 +63,18 @@ test("look shader includes gamma and exposure shaping helpers", async () => {
 });
 
 
-test("look shader applies tint as a normalized signed RGB axis", async () => {
+test("look shader applies tint as luma-neutral RGB dye with luma refit", async () => {
   const source = await readFile(shaderPath, "utf8");
-  assert.match(source, /vec3\s+tint_axis\s*=\s*u_tint_high\s*-\s*u_tint_low/);
-  assert.match(source, /vec3\s+tint_dir\s*=\s*length\(tint_axis\)\s*>\s*1e-6\s*\?\s*normalize\(tint_axis\)\s*:\s*vec3\(0\.0\)/);
-  assert.match(source, /vec3\s+tint_vec\s*=\s*tint_dir\s*\*\s*tint_side\s*\*\s*u_tint_strength/);
-  assert.match(source, /oklchToSrgb\(lch_out\)\s*\+\s*tint_vec/);
+  assert.match(source, /const\s+vec3\s+rgbLuma\s*=\s*vec3\(0\.2126,\s*0\.7152,\s*0\.0722\)/);
+  assert.match(source, /vec3\s+lumaNeutralDye\s*\(/);
+  assert.match(source, /vec3\s+fitRgbPreserveLuma\s*\(/);
+  assert.match(source, /float\s+tint_low_weight\s*=\s*max\(-tint_side,\s*0\.0\)/);
+  assert.match(source, /float\s+tint_high_weight\s*=\s*max\(tint_side,\s*0\.0\)/);
+  assert.match(source, /lumaNeutralDye\(u_tint_low\)/);
+  assert.match(source, /lumaNeutralDye\(u_tint_high\)/);
+  assert.match(source, /fitRgbPreserveLuma\(rgb_base\s*\+\s*tint_vec,\s*target_y\)/);
+  assert.doesNotMatch(source, /vec3\s+tint_axis\s*=/);
+  assert.doesNotMatch(source, /oklchToSrgb\(lch_out\)\s*\+\s*tint_vec/);
   assert.doesNotMatch(source, /ab_tinted/);
 });
 

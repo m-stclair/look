@@ -30,6 +30,8 @@ const float sLow = 0.18;
 const float sHigh = 0.35;
 const float hLow = 0.65;
 const float hHigh = 0.8;
+const vec3 rgbLuma = vec3(0.2126, 0.7152, 0.0722);
+const float tintRgbScale = 0.22;
 
 out vec4 outColor;
 
@@ -136,6 +138,31 @@ float applyLiftMidtoneGain(float L, float lift, float midtone, float gain) {
     return clamp(L + delta, 0.0, 1.0);
 }
 
+vec3 lumaNeutralDye(vec3 rgb) {
+    float y = dot(rgb, rgbLuma);
+    vec3 dye = rgb - vec3(y);
+    float m = max(max(abs(dye.r), abs(dye.g)), abs(dye.b));
+    return m > 1e-6 ? dye / m : vec3(0.0);
+}
+
+vec3 fitRgbPreserveLuma(vec3 rgb, float targetY) {
+    float y = clamp(targetY, 0.0, 1.0);
+    vec3 gray = vec3(y);
+    vec3 delta = rgb - gray;
+    float scale = 1.0;
+
+    if (delta.r > 1e-6) scale = min(scale, (1.0 - y) / delta.r);
+    else if (delta.r < -1e-6) scale = min(scale, -y / delta.r);
+
+    if (delta.g > 1e-6) scale = min(scale, (1.0 - y) / delta.g);
+    else if (delta.g < -1e-6) scale = min(scale, -y / delta.g);
+
+    if (delta.b > 1e-6) scale = min(scale, (1.0 - y) / delta.b);
+    else if (delta.b < -1e-6) scale = min(scale, -y / delta.b);
+
+    return gray + delta * clamp(scale, 0.0, 1.0);
+}
+
 vec3 applyLook(vec3 srgb) {
     vec3 lch = srgbToOklch(srgb);
 
@@ -160,14 +187,19 @@ vec3 applyLook(vec3 srgb) {
     }
 
     float tint_side = clamp(logL - u_tint_center, -2.0, 2.0);
-    vec3 tint_axis = u_tint_high - u_tint_low;
-    vec3 tint_dir = length(tint_axis) > 1e-6 ? normalize(tint_axis) : vec3(0.0);
-    vec3 tint_vec = tint_dir * tint_side * u_tint_strength;
+    float tint_low_weight = max(-tint_side, 0.0);
+    float tint_high_weight = max(tint_side, 0.0);
+    vec3 tint_low_dye = lumaNeutralDye(u_tint_low);
+    vec3 tint_high_dye = lumaNeutralDye(u_tint_high);
+    vec3 tint_vec = (tint_low_dye * tint_low_weight + tint_high_dye * tint_high_weight) * u_tint_strength * tintRgbScale;
 
     float chroma_out = length(ab_base);
     float hue_out = atan(ab_base.y, ab_base.x);
     vec3 lch_out = vec3(tone, chroma_out, hue_out);
-    vec3 rgb_out = oklchToSrgb(lch_out) + tint_vec;
+    vec3 rgb_base = oklchToSrgb(lch_out);
+    if (u_tint_strength <= 0.0) return rgb_base;
+    float target_y = dot(clamp(rgb_base, 0.0, 1.0), rgbLuma);
+    vec3 rgb_out = fitRgbPreserveLuma(rgb_base + tint_vec, target_y);
     return rgb_out;
 }
 

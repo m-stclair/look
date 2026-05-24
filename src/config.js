@@ -84,7 +84,7 @@ export const CONTROL_GROUPS = Object.freeze([
   {
     id: "tint",
     label: "Tint",
-    description: "Two-ended luma tint with an independent crossover point.",
+    description: "Two-ended luma-neutral RGB dye with an independent crossover point.",
     controls: [
       {key: "tintLowHue", label: "Low Hue", min: 0, max: 360, step: 0.01, suffix: "°"},
       {key: "tintHighHue", label: "High Hue", min: 0, max: 360, step: 0.01, suffix: "°"},

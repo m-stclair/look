@@ -16,6 +16,20 @@ function assertClose(actual, expected, epsilon = 1e-6) {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} should be close to ${expected}`);
 }
 
+const RGB_LUMA = [0.2126, 0.7152, 0.0722];
+const TINT_RGB_SCALE = 0.22;
+
+function dot3(a, b) {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function lumaNeutralDye(rgb) {
+  const y = dot3(rgb, RGB_LUMA);
+  const dye = rgb.map(channel => channel - y);
+  const maxAbs = Math.max(...dye.map(channel => Math.abs(channel)));
+  return maxAbs > 1e-6 ? dye.map(channel => channel / maxAbs) : [0, 0, 0];
+}
+
 test("generateCubeLut writes a valid 3D cube header and row count", () => {
   const cube = generateCubeLut(DEFAULT_CONFIG, {size: 2, title: "Neutral"});
   assert.match(cube, /^TITLE "Neutral"/);
@@ -87,7 +101,7 @@ test("tint axis center controls the bipolar tint crossover", () => {
 });
 
 
-test("tint uses a normalized signed RGB axis from the endpoint hues", () => {
+test("highlight tint uses its own luma-neutral RGB dye", () => {
   // Neutral sRGB value whose OKLab L is 0.5, so tintAxisCenter -2 gives tintSide +1.
   const input = [0.3885728590463344, 0.3885728590463344, 0.3885728590463344];
   const strength = 0.05;
@@ -102,16 +116,12 @@ test("tint uses a normalized signed RGB axis from the endpoint hues", () => {
   const neutral = applyLookToSrgb(input, {...config, tintStrength: 0});
   const tinted = applyLookToSrgb(input, config);
   const delta = tinted.map((channel, index) => channel - neutral[index]);
-  const deltaLength = Math.hypot(...delta);
+  const expectedDye = lumaNeutralDye(lookTintFromHueDegrees(config.tintHighHue));
 
-  const low = lookTintFromHueDegrees(config.tintLowHue);
-  const high = lookTintFromHueDegrees(config.tintHighHue);
-  const axis = high.map((channel, index) => channel - low[index]);
-  const axisLength = Math.hypot(...axis);
-  const expectedDirection = axis.map(channel => channel / axisLength);
-
-  assertClose(deltaLength, strength, 1e-9);
-  delta.forEach((channel, index) => assertClose(channel / deltaLength, expectedDirection[index], 1e-9));
+  delta.forEach((channel, index) => {
+    assertClose(channel, expectedDye[index] * strength * TINT_RGB_SCALE, 1e-9);
+  });
+  assertClose(dot3(tinted, RGB_LUMA), dot3(neutral, RGB_LUMA), 1e-9);
 });
 
 
@@ -127,16 +137,21 @@ test("cubeTitle strips characters that break quoted titles", () => {
 });
 
 
-test("low and high tint hues define one shared signed axis", () => {
+test("low and high tint hues are independent dye handles", () => {
   const lowInput = [0.08, 0.08, 0.08];
   const highInput = [0.8, 0.8, 0.8];
   const base = {tintStrength: 0.05, tintAxisCenter: -1, tintLowHue: 240, tintHighHue: 60, curveStrength: 0};
 
   const lowA = applyLookToSrgb(lowInput, base);
   const lowB = applyLookToSrgb(lowInput, {...base, tintLowHue: 120});
+  const lowC = applyLookToSrgb(lowInput, {...base, tintHighHue: 120});
   const highA = applyLookToSrgb(highInput, base);
   const highB = applyLookToSrgb(highInput, {...base, tintLowHue: 120});
+  const highC = applyLookToSrgb(highInput, {...base, tintHighHue: 120});
 
   assert.ok(lowA.some((channel, index) => Math.abs(channel - lowB[index]) > 1e-4));
-  assert.ok(highA.some((channel, index) => Math.abs(channel - highB[index]) > 1e-4));
+  lowA.forEach((channel, index) => assertClose(channel, lowC[index], 1e-12));
+
+  highA.forEach((channel, index) => assertClose(channel, highB[index], 1e-12));
+  assert.ok(highA.some((channel, index) => Math.abs(channel - highC[index]) > 1e-4));
 });
