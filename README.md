@@ -1,6 +1,10 @@
-# Look Minimal
+# Look
 
 A standalone extraction and expansion of `vandal`'s 'procedural LUT' `Look` effect.
+
+Unlike `vandal` and some of its other children, Look is not for spatial-domain 
+processing, quantized / discrete effects, etc. Look is for fast, easy shaping 
+of continuous, invertible point transforms.
 
 ## Run
 
