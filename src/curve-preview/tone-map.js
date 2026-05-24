@@ -5,27 +5,22 @@ import {
   CONTROL_DEFINITIONS,
   EXPOSURE_PLACEMENT_LUMA,
   TONAL_BALANCE_HANDLES,
-  adjustedLumaFromInputLuma,
   clamp,
   clamp01,
   curveStrengthValueFromVerticalDrag,
   devicePixelRatioSafe,
-  effectiveTonePivotLuma,
   exposurePlacementInputLuma,
   exposureValueFromHorizontalPosition,
   formatCompact,
   formatSigned,
   gammaValueFromVerticalDrag,
   histogramDensityAtLuma,
-  inputLumaFromAdjustedLuma,
   lumaCurveSample,
   lumaToneBaseSample,
   mix,
-  safeLog2,
   sanitizeControlValue,
   tonePivotInputLuma,
   tonePivotNudgeFromSlopeHandleInputLuma,
-  tonalBalanceHandleValue,
   tonalBalanceValueFromVerticalDrag,
   transformLumaHistogram
 } from "./shared.js";
@@ -68,6 +63,8 @@ const SHOULDER_GAUGE_OFFSET_X = 30;
 export const CURVE_STRENGTH_MAST_HEIGHT = 44;
 export const SHOULDER_GAUGE_HEIGHT = 44;
 const SHOULDER_GAUGE_EDGE_PAD = 10;
+const TONE_SHOULDER_GAUGE_NEUTRAL = 1;
+const TONE_SHOULDER_GAUGE_NEUTRAL_UNIT = 0.5;
 const TRIM_LANE_BOTTOM_OFFSET = 18;
 const TRIM_LANE_HALF_RANGE = 15;
 
@@ -278,14 +275,26 @@ export function shoulderGaugeUnitFromToneShoulder(toneShoulder) {
   const control = CONTROL_DEFINITIONS.get("toneShoulder");
   const min = control?.min ?? 1;
   const max = control?.max ?? 6;
-  return clamp01((sanitizeControlValue("toneShoulder", toneShoulder) - min) / Math.max(1e-9, max - min));
+  const shoulder = sanitizeControlValue("toneShoulder", toneShoulder);
+  const neutral = clamp(TONE_SHOULDER_GAUGE_NEUTRAL, min, max);
+  const neutralUnit = clamp01(TONE_SHOULDER_GAUGE_NEUTRAL_UNIT);
+  if (shoulder <= neutral) {
+    return neutralUnit * (shoulder - min) / Math.max(1e-9, neutral - min);
+  }
+  return neutralUnit + (1 - neutralUnit) * (shoulder - neutral) / Math.max(1e-9, max - neutral);
 }
 
 export function toneShoulderFromGaugeUnit(unit) {
   const control = CONTROL_DEFINITIONS.get("toneShoulder");
   const min = control?.min ?? 1;
   const max = control?.max ?? 6;
-  return sanitizeControlValue("toneShoulder", mix(min, max, clamp01(unit)));
+  const neutral = clamp(TONE_SHOULDER_GAUGE_NEUTRAL, min, max);
+  const neutralUnit = clamp01(TONE_SHOULDER_GAUGE_NEUTRAL_UNIT);
+  const gaugeUnit = clamp01(unit);
+  if (gaugeUnit <= neutralUnit) {
+    return sanitizeControlValue("toneShoulder", mix(min, neutral, gaugeUnit / Math.max(1e-9, neutralUnit)));
+  }
+  return sanitizeControlValue("toneShoulder", mix(neutral, max, (gaugeUnit - neutralUnit) / Math.max(1e-9, 1 - neutralUnit)));
 }
 
 export function toneShoulderFromGaugePointer(clientY, top, height) {
@@ -423,15 +432,6 @@ function tonalBalanceHandlePoint(frame, config, handle) {
     y: tonalBalanceLaneY(frame) - (value / maxAbs) * TRIM_LANE_HALF_RANGE * dpr
   };
 }
-
-function tonalBalanceActualCurvePoint(frame, config, handle) {
-  const plot = plotRect(frame);
-  return {
-    x: plot.x + handle.luma * plot.w,
-    y: plot.y + (1 - lumaCurveSample(handle.luma, config)) * plot.h
-  };
-}
-
 
 export function createToneMapControls(canvas, bindings) {
   const card = canvas.closest?.(".curve-preview-card") || canvas.parentElement;
