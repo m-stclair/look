@@ -14,6 +14,8 @@ python3 -m http.server 8000
 
 Then open `http://localhost:8000`.
 
+Alternatively: use the live version at m-stclair.github.io/look.
+
 ## Looks
 
 The top toolbar has a small looks layer over the shader config:
